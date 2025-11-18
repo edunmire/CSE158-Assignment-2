@@ -2,7 +2,9 @@
 
 # Authors
 Shouki Katsuyama
+
 Phillip Schiffman
+
 Emma Dunmire
 
 # Description
@@ -14,7 +16,9 @@ Additional features that were added to the training data: whether or not it's a 
 
 # Dataset Specifications
 Name: Google Local
+
 Size: __
+
 Number of Datapoints: ___
 
 -----------------------------------------------------------------------------------
