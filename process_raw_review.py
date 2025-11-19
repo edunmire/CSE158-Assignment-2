@@ -1,3 +1,5 @@
+# I reused my code from COGS108 project to process dataset.
+
 import os
 import json
 import gzip
