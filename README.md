@@ -15,11 +15,26 @@ that included rating, price, hours, name, and location.
 Additional features that were added to the training data: whether or not it's a chain, ___...
 
 # Dataset Specifications
-Name: Google Local
+Name: [Google Local Data (2021)](https://mcauleylab.ucsd.edu/public_datasets/gdrive/googlelocal/)
 
-Size: __
+## Processing
+You can either run `process_raw_business.py` and `process_raw_review.py`.
 
-Number of Datapoints: ___
+```bash
+python process_raw_business.py
+python process_raw_review.py
+```
+or unzip `./datasets/processed.zip` into `./datasets/processed`
+
+## Dataset Tabls
+
+The dataset contains mainly three tables `cafes.csv`, `reviews.csv`, and `users.csv`.
+
+* `cafes` table size is (15576, 9) and columns are [`gmap_id`, `name`, `latitude`, `longitude`, `category`, `avg_rating`, `num_of_reviews`, `price`, `hours`]
+* `users` table size is (196454, 2) and columns are [`user_id`, `num_reviews`]
+* `reviews` table size is (1769673, 6) and columns are [`gmap_id`, `user_id`, `name`, `time`, `rating`, `review_id`]
+
+where `gmap_id` is a unique identifier for cafe. You can see sample code for loading dataset in `load_datasets.py`.
 
 -----------------------------------------------------------------------------------
 

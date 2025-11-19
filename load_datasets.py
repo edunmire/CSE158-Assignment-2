@@ -25,10 +25,8 @@ def create_user_review_dicts(reviews):
 if __name__ == "__main__":
     cafes, users, reviews = load_table_data()
 
-    print(cafes.head())
-    print(users.head())
-    print(reviews.head())
+    print(f"cafes table size is {cafes.shape} and columns are {list(cafes.columns)}")
+    print(f"users table size is {users.shape} and columns are {list(users.columns)}")
+    print(f"reviews table size is {reviews.shape} and columns are {list(reviews.columns)}")
 
     ratings, user2cafes, cafe2users = create_user_review_dicts(reviews)
-
-    print(len(ratings))
