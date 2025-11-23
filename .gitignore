@@ -2,3 +2,4 @@ datasets/processed
 datasets/raw
 
 .DS_Store
+__pychache__/
