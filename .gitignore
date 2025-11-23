@@ -3,3 +3,4 @@ datasets/raw
 
 .DS_Store
 __pychache__/
+*.pyc
