@@ -10,13 +10,12 @@ def split_reviews():
     file_name = "./datasets/processed/reviews.csv"
     reviews = pd.read_csv(file_name).sample(frac=1, random_state=42)
 
-    valid_size = int(reviews.shape[0] * 0.1)
-    test_size = int(reviews.shape[0] * 0.1)
+    valid_size = 20000
+    test_size = 20000
 
     valid_reviews = reviews.iloc[:valid_size].reset_index(drop=True)
     test_reviews = reviews.iloc[valid_size: valid_size + test_size].reset_index(drop=True)
     train_reviews = reviews.iloc[valid_size + test_size:].reset_index(drop=True)
-    print(train_reviews.head())
 
     print(f"train: {train_reviews.shape[0]} / valid: {valid_reviews.shape[0]} / test: {test_reviews.shape[0]}")
 
@@ -38,4 +37,4 @@ def update_metrics(name, train, valid, params):
         json.dump(metrics, f)
 
 if __name__ == "__main__":
-    splits_reviews()
+    split_reviews()

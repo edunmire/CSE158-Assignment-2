@@ -18,11 +18,21 @@ class CafeDataset():
 
         return 1 + user_size + cafe_size, user_size, cafe_size
 
+    def get_rating_average(self):
+        return pd.read_csv(f"./datasets/splits/train.csv")["rating"].mean()
+
     def load(self, mode):
         reviews = pd.read_csv(f"./datasets/splits/{mode}.csv")
+        return reviews
+
+    def load_batch(self, reviews, batch_size, batch_index):
+        if batch_size * (batch_index + 1) > reviews.shape[0]:
+            return None, None
+
+        reviews = reviews.iloc[batch_size * batch_index : batch_size * (batch_index + 1)]
 
         feat_size, user_size, _ = self.get_feat_size()
-        feats = np.zeros([reviews.shape[0], feat_size])
+        feats = np.zeros([batch_size, feat_size]).astype(np.int8)
         feats[:, 0] = np.ones(reviews.shape[0])
 
         ratings = []
@@ -36,7 +46,7 @@ class CafeDataset():
 
             ratings.append(review[4])
 
-        ratings = np.array(ratings)
+        ratings = np.array(ratings).astype(np.float16)
 
         return feats, ratings
 
