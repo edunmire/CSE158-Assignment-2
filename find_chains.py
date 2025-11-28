@@ -1,10 +1,10 @@
-import seaborn as sns
-import pandas as pd
-import numpy as np
-
 from collections import defaultdict
 import json
 
+import seaborn as sns
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
 def filter_by_bigrams():
     freq_thresh = 100
@@ -97,11 +97,38 @@ def filter_by_stem():
     small_chains_counts = sum([1 for _, c in chains.items() if c == 1])
     non_chains_counts = sum([1 for _, c in chains.items() if c == 0])
     print(f"The number of big chains: {big_chains_counts}")
-    print(f"The number of small chains: {small_chains_counts}")
+    print(f"The number of sub chains: {small_chains_counts}")
     print(f"The number of non chains: {non_chains_counts}")
 
     with open("./datasets/processed/chains.json", "w") as f:
         json.dump(chains, f)
 
+def plot_avg_rating_by_chain():
+    with open("./datasets/processed/chains.json", "r") as f:
+        chains = json.load(f)
+
+    cafes = pd.read_csv("./datasets/processed/cafes.csv")
+    ratings = defaultdict(list)
+    for name, rating in cafes[["name", "avg_rating"]].values:
+        ratings[chains[name]].append(rating)
+
+    categories = ["Non Chain", "Sub Chains", "Chains"]
+    data = []
+    for key, ratings in ratings.items():
+        data.append((key, categories[key], sum(ratings) / len(ratings)))
+    data = pd.DataFrame(data, columns=["key", "category", "avg_rating"])
+    data = data.sort_values(by="key")
+
+    sns.set_theme(style="whitegrid", palette="viridis")
+    sns.barplot(data, x="category", y="avg_rating")
+
+    plt.title("Average Rating of Cafes by Non Chains, Sub Chains, and Chains")
+    plt.xlabel("Chain")
+    plt.ylabel("Average Rating")
+    plt.ylim((3.5, 4.5))
+    plt.savefig("./avg_rating_by_chains.png")
+
+
 if __name__ == "__main__":
-    filter_by_stem()
+    # filter_by_stem()
+    plot_avg_rating_by_chain()
