@@ -5,3 +5,8 @@ datasets/splits
 .DS_Store
 __pychache__/
 *.pyc
+
+models/*64*.pt
+models/*128*.pt
+models/*256*.pt
+models/*512*.pt
