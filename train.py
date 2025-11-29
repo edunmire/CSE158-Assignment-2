@@ -14,6 +14,8 @@ if __name__ == "__main__":
     model = BaseRatePredictor(name)
     train_mses, valid_mses = model.fit(lambs, n_epochs)
 
-    os.makedirs("./models")
+    os.makedirs("./models", exist_ok=True)
     with open(f"./models/{name}.pkl", "wb") as f:
         pickle.dump(model, f)
+
+    update_metrics(name, train_mses, valid_mses)

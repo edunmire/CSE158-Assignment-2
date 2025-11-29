@@ -24,14 +24,14 @@ def split_reviews():
     valid_reviews.to_csv("./datasets/splits/valid.csv", index=False)
     test_reviews.to_csv("./datasets/splits/test.csv", index=False)
 
-def update_metrics(name, train, valid, params):
+def update_metrics(name, train, valid):
     if os.path.exists("./metrics.json"):
         with open("./metrics.json", "r") as f:
            metrics = json.load(f)
     else:
         metrics = {}
 
-    metrics[name] = {"metrics": {"train": train, "valid": valid}, "params": params}
+    metrics[name] = {"metrics": {"train": train, "valid": valid}}
 
     with open("./metrics.json", "w") as f:
         json.dump(metrics, f)
