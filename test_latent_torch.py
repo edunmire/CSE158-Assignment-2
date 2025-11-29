@@ -52,10 +52,11 @@ def test_model(name, test_dataloader, model, device):
 
 if __name__ == "__main__":
     subset = True
-    name = "latent_torch_0-2-2-2-2_10_0.01_32_subset"
+    name = "latent_torch_time_0-2-2-2-2-2-2_10_0.01_32_subset"
 
-    feat_names = ["alpha", "user", "cafe"]
+    feat_names = ["alpha", "user", "cafe", "weekday", "hour"]
     latent_names = ["user", "cafe"]
+    latent_pairs = [("user", "cafe")]
 
     batch_size = 2048
     feat_dicts, avg_rating = preprocess_data_latent(feat_names)

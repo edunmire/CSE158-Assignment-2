@@ -1,7 +1,4 @@
-import json
-from collections import defaultdict
-import pickle
-import os
+from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -11,13 +8,34 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
 
+# One Hot Encoding for Unix Time Weekday
+def unix_weekday_to_onehot(time):
+    feature_weekday = [0]*7
+
+    day = datetime.fromtimestamp(time / 1000, tz=timezone.utc).weekday()
+    feature_weekday[day] = 1.
+
+    return feature_weekday
+
+# One Hot Encoding for Unix Time Hour
+def unix_hour_to_onehot(time):
+    feature_dayhour = [0]*24
+
+    hr = datetime.fromtimestamp(time / 1000, tz=timezone.utc).hour
+    feature_dayhour[hr] = 1.
+
+    return feature_dayhour
+
 class RatePredictorLatent(nn.Module):
-    def __init__(self, name, dim, feat_sizes, latent_names, avg_rating):
+    def __init__(self, name, dim, feat_sizes, latent_names, latent_pairs, avg_rating):
         super().__init__()
 
         self.name = name
         self.num_feats = len(feat_sizes)
         self.num_latents = len(latent_names)
+
+        self.latent_names = latent_names
+        self.latent_pairs = latent_pairs
 
         self.latent_indices = []
         weights = []
@@ -39,7 +57,7 @@ class RatePredictorLatent(nn.Module):
             latent = torch.randn(feat_size, dim) / dim
             latents.append(nn.Parameter(latent, requires_grad=True))
 
-        self.latents =  nn.ParameterList(latents)
+        self.latents = nn.ParameterList(latents)
 
     def forward(self, feats):
         assert len(feats) == self.num_feats
@@ -48,14 +66,13 @@ class RatePredictorLatent(nn.Module):
         for i in range(self.num_feats):
             out += torch.einsum("bd,d->b", feats[i], self.weights[i])
 
-        gammas = []
+        gammas = {}
         for i in range(self.num_latents):
             index = self.latent_indices[i]
-            gammas.append(torch.einsum("bd,di->bi", feats[index], self.latents[i]))
+            gammas[self.latent_names[i]] = torch.einsum("bd,di->bi", feats[index], self.latents[i])
 
-        for i in range(self.num_latents):
-            for j in range(i + 1, self.num_latents):
-                out += torch.einsum("bi,bi->b", gammas[i], gammas[j])
+        for (latent_i, latent_j) in self.latent_pairs:
+            out += torch.einsum("bi,bi->b", gammas[latent_i], gammas[latent_j])
 
         return out
 
@@ -65,10 +82,7 @@ def preprocess_data_latent(feat_names):
 
     feat_dicts = {}
     for name in feat_names:
-        if name == "alpha":
-            pass
-
-        elif name == "user":
+        if name == "user":
             unique_user_ids = np.sort(np.unique(reviews["user_id"].values))
             user2index = {user_id: index for index, user_id in enumerate(unique_user_ids)}
             feat_dicts[name] = user2index
@@ -77,9 +91,6 @@ def preprocess_data_latent(feat_names):
             unique_gmap_ids = np.sort(np.unique(cafes["gmap_id"]))
             cafe2index = {gmap_id: index for index, gmap_id in enumerate(unique_gmap_ids)}
             feat_dicts[name] = cafe2index
-
-        else:
-            raise NotImplementedError
 
     avg_rating = reviews["rating"].mean()
 
@@ -108,6 +119,12 @@ class CafeDatasetLatent(Dataset):
             elif name == "cafe":
                 feat_sizes[name] = len(self.feat_dicts[name].keys())
 
+            elif name == "weekday":
+                feat_sizes[name] = 7
+
+            elif name == "hour":
+                feat_sizes[name] = 24
+
             else:
                 raise NotImplementedError
 
@@ -134,6 +151,14 @@ class CafeDatasetLatent(Dataset):
                 feat_dict = self.feat_dicts[name]
                 feat = torch.zeros(len(feat_dict.keys()))
                 feat[feat_dict[review[0]]] = 1.
+                feats.append(feat)
+
+            elif name == "weekday":
+                feat = torch.tensor(unix_weekday_to_onehot(int(review[3])))
+                feats.append(feat)
+
+            elif name == "hour":
+                feat = torch.tensor(unix_hour_to_onehot(int(review[3])))
                 feats.append(feat)
 
             else:
