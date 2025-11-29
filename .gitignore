@@ -1,5 +1,6 @@
 datasets/processed
 datasets/raw
+datasets/splits
 
 .DS_Store
 __pychache__/
