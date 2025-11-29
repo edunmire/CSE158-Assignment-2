@@ -17,11 +17,11 @@ if __name__ == "__main__":
         if not os.path.exists("./datasets/splits/train.csv"):
             split_reviews(subset)
 
-    lambs = [4, 8, 2, 1]
-    n_epochs = [5, 3, 10]
+    lambs = [2, 1]
+    n_epochs = [5, 10]
     lrs = [0.01, 0.001, 0.1]
 
-    params = [(lamb, n_epoch, lr) for lamb in lambs for n_epoch in n_epochs for lr in lrs]
+    params = [(lamb, n_epoch, lr) for lr in lrs for n_epoch in n_epochs for lamb in lambs]
 
     for (lamb, n_epoch, lr) in params:
         name = f"base_torch_{lamb}_{n_epoch}_{lr}"
