@@ -1,5 +1,6 @@
 from collections import defaultdict
 import json
+import os
 
 import seaborn as sns
 import pandas as pd
@@ -122,12 +123,12 @@ def plot_avg_rating_by_chain():
     sns.set_theme(style="whitegrid", palette="viridis")
     sns.barplot(data, x="category", y="avg_rating")
 
+    os.makedirs("./plots", exist_ok=True)
     plt.title("Average Rating of Cafes by Non Chains, Sub Chains, and Chains")
     plt.xlabel("Chain")
     plt.ylabel("Average Rating")
     plt.ylim((3.5, 4.5))
-    plt.savefig("./avg_rating_by_chains.png")
-
+    plt.savefig("./plots/avg_rating_by_chains.png")
 
 if __name__ == "__main__":
     # filter_by_stem()
