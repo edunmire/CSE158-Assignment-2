@@ -1,7 +1,7 @@
 import os
 
 from utils import *
-from rate_predction_torch import *
+from rate_prediction_torch import *
 
 import torch.nn as nn
 from torch.utils.data import DataLoader

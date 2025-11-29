@@ -1,7 +1,7 @@
 import os
 
 from utils import *
-from rate_prediction_torch import *
+from rate_prediction_latent_torch import *
 
 from torch.utils.data import DataLoader
 
@@ -17,14 +17,19 @@ if __name__ == "__main__":
         if not os.path.exists("./datasets/splits/train.csv"):
             split_reviews(subset)
 
-    lambs = [2, 1]
-    n_epochs = [5, 10]
-    lrs = [0.01, 0.001, 0.1]
+    lambs = [0, 2, 2, 2, 2]
+    n_epoch = 10
+    lr = 0.01
+    dims = [16, 8, 4, 2, 16, 32]
 
-    params = [(lamb, n_epoch, lr) for lr in lrs for n_epoch in n_epochs for lamb in lambs]
+    feat_names = ["alpha", "user", "cafe"]
+    latent_names = ["user", "cafe"]
 
-    for (lamb, n_epoch, lr) in params:
-        name = f"base_torch_{lamb}_{n_epoch}_{lr}"
+    params = [(lambs, n_epoch, lr, dim) for dim in dims]
+
+    for (lambs, n_epoch, lr, dim) in params:
+        lamb_str = "-".join([str(l) for l in lambs])
+        name = f"latent_torch_{lamb_str}_{n_epoch}_{lr}_{dim}"
         if subset:
             name += "_subset"
 
@@ -34,17 +39,18 @@ if __name__ == "__main__":
         print(f"Start training {name}")
         batch_size = 2048
 
-        user2index, cafe2index, avg_rating = preprocess_data()
-
-        train_dataset = CafeDataset("train", user2index, cafe2index, subset=subset)
-        valid_dataset = CafeDataset("valid", user2index, cafe2index, subset=subset)
+        feat_dicts, avg_rating = preprocess_data_latent(feat_names)
+        train_dataset = CafeDatasetLatent("train", feat_names, feat_dicts, subset=subset)
+        valid_dataset = CafeDatasetLatent("valid", feat_names, feat_dicts, subset=subset)
 
         train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True)
-        model = RatePredictor(name, train_dataset.feat_size, avg_rating)
+
+        feat_sizes = train_dataset.get_feat_sizes()
+        model = RatePredictorLatent(name, dim, feat_sizes,latent_names, avg_rating)
 
         device = torch.device("cpu")
-        trainer = RateTrainer(model, lamb, lr, train_dataloader, valid_dataloader, device)
+        trainer = RateTrainerLatent(model, lambs, lr, train_dataloader, valid_dataloader, device)
 
         train_mses, valid_mses = trainer.train(n_epoch)
 
