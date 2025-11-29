@@ -36,7 +36,7 @@ class RatePredictorLatent(nn.Module):
         latents = []
         for name in latent_names:
             feat_size = feat_sizes[name]
-            latent = torch.randn(feat_size, dim)
+            latent = torch.randn(feat_size, dim) / dim
             latents.append(nn.Parameter(latent, requires_grad=True))
 
         self.latents =  nn.ParameterList(latents)
@@ -211,12 +211,13 @@ class RateTrainerLatent():
     def regularizer(self):
         weight_size = len(self.model.weights)
         latent_size = len(self.model.latents)
+        dim = self.model.latents[0].size(1)
         assert len(self.lambs) == weight_size + latent_size
         reg = 0
         for i in range(len(self.lambs)):
             if i < len(self.model.weights):
                 reg += self.lambs[i] * torch.mean(self.model.weights[i] ** 2)
             else:
-                reg += self.lambs[i] * torch.mean(self.model.latents[i - weight_size] ** 2)
+                reg += self.lambs[i] * dim * torch.mean(self.model.latents[i - weight_size] ** 2)
 
         return reg

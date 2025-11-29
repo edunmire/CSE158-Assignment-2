@@ -20,7 +20,7 @@ if __name__ == "__main__":
     lambs = [0, 2, 2, 2, 2]
     n_epoch = 10
     lr = 0.01
-    dims = [16, 8, 4, 2, 16, 32]
+    dims = [512, 256, 128, 64, 32, 8, 4, 2]
 
     feat_names = ["alpha", "user", "cafe"]
     latent_names = ["user", "cafe"]
