@@ -22,7 +22,7 @@ if __name__ == "__main__":
     lr = 0.01
     dim = 32
 
-    feat_names = ["alpha", "user", "cafe", "weekday", "hour"]
+    feat_names = ["alpha", "user", "cafe", "weekday", "hour", "price"]
     latent_names = ["user", "cafe", "weekday", "hour"]
     latent_pairs = [("user", "cafe"), ("user", "weekday"), ("user", "hour")]
 

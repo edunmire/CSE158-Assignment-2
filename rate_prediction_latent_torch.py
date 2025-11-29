@@ -26,6 +26,13 @@ def unix_hour_to_onehot(time):
 
     return feature_dayhour
 
+# One Hot Encoding for Price
+def price_to_onehot(price):
+    feature_price = [0]*3
+    if price is not np.nan:
+        feature_price[len(price)-1] += 1
+    return feature_price
+
 class RatePredictorLatent(nn.Module):
     def __init__(self, name, dim, feat_sizes, latent_names, latent_pairs, avg_rating):
         super().__init__()
@@ -92,6 +99,15 @@ def preprocess_data_latent(feat_names):
             cafe2index = {gmap_id: index for index, gmap_id in enumerate(unique_gmap_ids)}
             feat_dicts[name] = cafe2index
 
+        elif name == "price":
+            unique_gmap_ids, indices = np.unique(cafes["gmap_id"], return_index=True)
+            order = np.argsort(unique_gmap_ids)
+            unique_gmap_ids = unique_gmap_ids[order]
+            indices = indices[order]
+            cafe2price = {gmap_id: cafes["prices"][index] for gmap_id, index in zip(unique_gmap_ids, indices)}
+            feat_dicts[name] = cafe2price
+
+
     avg_rating = reviews["rating"].mean()
 
     return feat_dicts, avg_rating
@@ -124,6 +140,9 @@ class CafeDatasetLatent(Dataset):
 
             elif name == "hour":
                 feat_sizes[name] = 24
+
+            elif name == "price":
+                feat_sizes[name] = 3
 
             else:
                 raise NotImplementedError
@@ -159,6 +178,11 @@ class CafeDatasetLatent(Dataset):
 
             elif name == "hour":
                 feat = torch.tensor(unix_hour_to_onehot(int(review[3])))
+                feats.append(feat)
+
+            elif name == "price":
+                feat_dict = self.feat_dicts[name]
+                feat = torch.tensor(price_to_onehot(feat_dict[review[0]]))
                 feats.append(feat)
 
             else:
