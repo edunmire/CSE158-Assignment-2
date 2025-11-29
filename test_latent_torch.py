@@ -52,7 +52,7 @@ def test_model(name, test_dataloader, model, device):
 
 if __name__ == "__main__":
     subset = True
-    name = "latent_torch_0-2-2-2-2_10_0.01_16_subset"
+    name = "latent_torch_0-2-2-2-2_10_0.01_32_subset"
 
     feat_names = ["alpha", "user", "cafe"]
     latent_names = ["user", "cafe"]
