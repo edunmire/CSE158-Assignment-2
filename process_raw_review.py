@@ -34,7 +34,7 @@ def filter_by_gmap_id(data, gmap_ids):
 
     return gmap_id in gmap_ids
 
-def filter_raw_review_data(filters):
+def filter_raw_review_data(filters, subset=False):
     reviews = []
 
     for review in tqdm.tqdm(parse(review_path), total=total_reviews):
@@ -45,29 +45,48 @@ def filter_raw_review_data(filters):
 
     print(f"We obtained total of {len(reviews)} after filtering")
     df = pd.DataFrame(reviews)
-    df.to_csv("./datasets/raw/cafe_reviews.csv", index=False)
 
-def extract_user_ids(reviews, min_num_reviews):
+    if subset:
+        df.to_csv("./datasets/raw/cafe_reviews_subset.csv", index=False)
+    else:
+        df.to_csv("./datasets/raw/cafe_reviews.csv", index=False)
+
+def extract_user_ids(reviews, min_num_reviews, subset=False):
     user_ids = reviews["user_id"].dropna().values
     unique, counts = np.unique(np.array(user_ids), return_counts=True)
     users = pd.DataFrame({"user_id": unique, "num_reviews": counts})
 
     users = users[users["num_reviews"] >= min_num_reviews].reset_index(drop=True)
-    users.to_csv("./datasets/processed/users.csv", index=False)
+    print(f"We extracted {users.shape[0]} users after filtering.")
 
-def filter_by_user_ids(reviews, user_ids):
+    if subset:
+        users.to_csv("./datasets/subset/users.csv", index=False)
+    else:
+        users.to_csv("./datasets/processed/users.csv", index=False)
+
+def filter_by_user_ids(reviews, user_ids, subset=False):
     reviews = reviews[reviews["user_id"].isin(user_ids)]
-    reviews.to_csv("./datasets/processed/reviews.csv", index=False)
+
+    print(f"We extracted {reviews.shape[0]} reviews after filtering.")
+
+    if subset:
+        reviews.to_csv("./datasets/subset/reviews.csv", index=False)
+    else:
+        reviews.to_csv("./datasets/processed/reviews.csv", index=False)
 
 if __name__ == "__main__":
-    gmap_ids = set(pd.read_csv("./datasets/processed/cafes.csv")["gmap_id"].values)
-
     if not os.path.exists("./datasets/raw/review-California.json.gz"):
         download_review_data()
 
     if not os.path.exists("./datasets/raw/cafe_reviews.csv"):
+        gmap_ids = set(pd.read_csv("./datasets/processed/cafes.csv")["gmap_id"].values)
         gmap_id_filter = partial(filter_by_gmap_id, gmap_ids=gmap_ids)
         filter_raw_review_data([gmap_id_filter])
+
+    if not os.path.exists("./datasets/raw/cafe_reviews_subset.csv"):
+        gmap_ids = set(pd.read_csv("./datasets/subset/cafes.csv")["gmap_id"].values)
+        gmap_id_filter = partial(filter_by_gmap_id, gmap_ids=gmap_ids)
+        filter_raw_review_data([gmap_id_filter], subset=True)
 
     if not os.path.exists("./datasets/processed/users.csv"):
         print("Start processing user data")
@@ -75,8 +94,20 @@ if __name__ == "__main__":
         min_num_reviews = 5
         extract_user_ids(reviews, min_num_reviews)
 
+    if not os.path.exists("./datasets/subset/users.csv"):
+        print("Start processing user data")
+        reviews = pd.read_csv("./datasets/raw/cafe_reviews_subset.csv")
+        min_num_reviews = 20
+        extract_user_ids(reviews, min_num_reviews, subset=True)
+
     if not os.path.exists("./datasets/processed/reviews.csv"):
         print("Start filtering review data")
         reviews = pd.read_csv("./datasets/raw/cafe_reviews.csv")
         user_ids = pd.read_csv("./datasets/processed/users.csv")["user_id"].values
         filter_by_user_ids(reviews, user_ids)
+
+    if not os.path.exists("./datasets/subset/reviews.csv"):
+        print("Start filtering review data")
+        reviews = pd.read_csv("./datasets/raw/cafe_reviews_subset.csv")
+        user_ids = pd.read_csv("./datasets/subset/users.csv")["user_id"].values
+        filter_by_user_ids(reviews, user_ids, subset=True)
