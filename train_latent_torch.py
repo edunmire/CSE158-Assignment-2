@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
     for (lambs, n_epoch, lr, dim) in params:
         lamb_str = "-".join([str(l) for l in lambs])
-        name = f"latent_torch_time_pairs_{lamb_str}_{n_epoch}_{lr}_{dim}"
+        name = f"latent_torch_{lamb_str}_{n_epoch}_{lr}_{dim}"
         if subset:
             name += "_subset"
 
@@ -45,7 +45,7 @@ if __name__ == "__main__":
         print(f"Start training {name}")
         batch_size = 2048
 
-        feat_dicts, avg_rating = preprocess_data_latent(feat_names)
+        feat_dicts, avg_rating = preprocess_data_latent(feat_names, subset=subset)
         train_dataset = CafeDatasetLatent("train", feat_names, feat_dicts, subset=subset)
         valid_dataset = CafeDatasetLatent("valid", feat_names, feat_dicts, subset=subset)
 
