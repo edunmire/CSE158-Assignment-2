@@ -17,15 +17,17 @@ if __name__ == "__main__":
         if not os.path.exists("./datasets/splits/train.csv"):
             split_reviews(subset)
 
-    lambs = [0, 2, 2, 2, 2, 2, 2, 2, 2]
+    lamb_dict = {"alpha": 0, "user": 0.1, "cafe": 1}
     n_epoch = 10
     lr = 0.01
     dim = 32
 
-    feat_names = ["alpha", "user", "cafe", "weekday", "hour", "price", "open_hours", "prev"]
-    latent_names = ["user", "cafe", "weekday", "hour"]
-    latent_pairs = [("user", "cafe"), ("user", "weekday"), ("user", "hour")]
+    feat_names = ["alpha", "user", "cafe"]
+    latent_names = ["user", "cafe"]
+    latent_pairs = [("user", "cafe")]
 
+    lambs = [lamb_dict[feat] for feat in feat_names + latent_names]
+    
     assert all([((latent_i in latent_names) and (latent_j in latent_names)) for (latent_i, latent_j) in latent_pairs])
     assert len(lambs) == len(feat_names) + len(latent_names)
 
