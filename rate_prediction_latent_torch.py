@@ -158,6 +158,17 @@ def preprocess_data_latent(feat_names):
             cafe2hours = {gmap_id: cafes["hours"][index] for gmap_id, index in zip(unique_gmap_ids, indices)}
             feat_dicts[name] = cafe2hours
 
+        elif name == "prev":
+            reviews_sorted = reviews.sort_values(by=['user_id', 'time'])
+
+            user_interactions = (
+                reviews_sorted.groupby('user_id')['gmap_id']
+                .apply(list)
+                .to_dict()
+            )
+
+            feat_dicts[name] = user_interactions
+
     avg_rating = reviews["rating"].mean()
 
     return feat_dicts, avg_rating
@@ -198,7 +209,7 @@ class CafeDatasetLatent(Dataset):
                 feat_sizes[name] = 3
             
             elif name == "prev":
-                feat_sizes[name] = len(self.feat_dicts[name].keys())
+                feat_sizes[name] = len(self.feat_dicts["cafe"].keys())
 
             else:
                 raise NotImplementedError
@@ -247,9 +258,15 @@ class CafeDatasetLatent(Dataset):
                 feats.append(feat)
 
             elif name == "prev":
-                feat_dict = self.feat_dicts[name]
-                feat = torch.zeros(len(feat_dict.keys()))
-                feat[feat_dict[review[0]]] = 1.
+                cafe_feat_dict = self.feat_dicts['cafe']    # All cafes
+                feat_dict = self.feat_dicts[name]           # List of user -> list of all cafes user rated
+                feat = torch.zeros(len(cafe_feat_dict.keys()))
+                user = review[1]
+                current_item = review[0]
+                i = feat_dict[user].index(current_item)     # Get index of current cafe in user list
+                if i > 0:
+                    prev_item = feat_dict[user][i-1]
+                    feat[cafe_feat_dict[prev_item]] = 1.
                 feats.append(feat)
             
             else:
