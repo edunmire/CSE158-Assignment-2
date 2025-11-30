@@ -52,21 +52,36 @@ def test_model(name, test_dataloader, model, device):
 
 if __name__ == "__main__":
     subset = True
-    name = "latent_torch_time_0-2-2-2-2-2-2_10_0.01_32_subset"
 
-    feat_names = ["alpha", "user", "cafe", "weekday", "hour"]
-    latent_names = ["user", "cafe"]
-    latent_pairs = [("user", "cafe")]
+    with open("./params.json", "r") as f:
+        params = json.load(f)
 
-    batch_size = 2048
-    feat_dicts, avg_rating = preprocess_data_latent(feat_names)
+    for param_dict in params:
+        feat = param_dict["feat"]
+        feat_names = param_dict["feat_names"]
+        latent_names = param_dict["latent_names"]
+        lamb_dict = param_dict["lamb_dict"]
+        test = param_dict["test"]
+        lambs = [lamb_dict[feat] for feat in feat_names + latent_names]
 
-    test_dataset = CafeDatasetLatent("test", feat_names, feat_dicts, subset=subset)
-    test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+        if not test:
+            continue
 
-    model = torch.load(f"./models/{name}.pt", weights_only=False)
+        lamb_str = "-".join([str(l) for l in lambs])
+        name = f"{feat}_{lamb_str}"
+        if subset:
+            name += "_subset"
 
-    device = torch.device("cpu")
-    result = test_model(name, test_dataloader, model, device)
 
-    update_test_results(result)
+        batch_size = 2048
+        feat_dicts, avg_rating = preprocess_data_latent(feat_names, subset=subset)
+
+        test_dataset = CafeDatasetLatent("test", feat_names, feat_dicts, subset=subset)
+        test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+
+        model = torch.load(f"./models/{name}.pt", weights_only=False)
+
+        device = torch.device("cpu")
+        result = test_model(name, test_dataloader, model, device)
+
+        update_test_results(result)
