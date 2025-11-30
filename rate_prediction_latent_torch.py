@@ -3,10 +3,34 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 import tqdm
+import re
 
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
+
+# Converts time text to values
+def parse_time(t):
+    t = t.strip().upper()
+
+    # Match hh or hh:mm formats
+    m = re.match(r"(\d{1,2})(?::(\d{2}))?(AM|PM)", t)
+    if not m:
+        raise ValueError(f"Invalid time format: {t}")
+
+    hour = int(m.group(1))
+    minute = int(m.group(2) or 0)
+    period = m.group(3)
+
+    # Convert to 24-hour
+    if period == "AM":
+        if hour == 12:
+            hour = 0
+    else:  # PM
+        if hour != 12:
+            hour += 12
+
+    return hour + minute / 60.0
 
 # One Hot Encoding for Unix Time Weekday
 def unix_weekday_to_onehot(time):
@@ -25,6 +49,32 @@ def unix_hour_to_onehot(time):
     feature_dayhour[hr] = 1.
 
     return feature_dayhour
+
+# One Hot Encoding for Price
+def price_to_onehot(price):
+    feature_price = [0]*3
+    if price is not np.nan:
+        feature_price[len(price)-1] += 1.
+    return feature_price
+
+# One Hot Encoding for Open Hours
+def hours_to_onehot(hours):
+    before_noon = 0
+    after_noon = 0
+
+    for entry in hours:
+        if entry[1] == "Open 24 hours":
+            return [1.,0,0]
+        
+        open_str, close_str = entry[1].split("–")
+        start_hr = int(np.floor(parse_time(open_str)))
+        if start_hr < 13:
+            before_noon += 1.
+        else: after_noon += 1.
+    
+    if before_noon > after_noon:
+        return [0,1.,0]
+    return [0,0,1.]
 
 class RatePredictorLatent(nn.Module):
     def __init__(self, name, dim, feat_sizes, latent_names, latent_pairs, avg_rating):
@@ -96,10 +146,37 @@ def preprocess_data_latent(feat_names, subset):
             cafe2index = {gmap_id: index for index, gmap_id in enumerate(unique_gmap_ids)}
             feat_dicts[name] = cafe2index
 
+        elif name == "price":
+            unique_gmap_ids, indices = np.unique(cafes["gmap_id"], return_index=True)
+            order = np.argsort(unique_gmap_ids)
+            unique_gmap_ids = unique_gmap_ids[order]
+            indices = indices[order]
+            cafe2price = {gmap_id: cafes["prices"][index] for gmap_id, index in zip(unique_gmap_ids, indices)}
+            feat_dicts[name] = cafe2price
+
+        elif name == "open_hours":
+            unique_gmap_ids, indices = np.unique(cafes["gmap_id"], return_index=True)
+            order = np.argsort(unique_gmap_ids)
+            unique_gmap_ids = unique_gmap_ids[order]
+            indices = indices[order]
+            cafe2hours = {gmap_id: cafes["hours"][index] for gmap_id, index in zip(unique_gmap_ids, indices)}
+            feat_dicts[name] = cafe2hours
+
+        elif name == "prev":
+            reviews_sorted = reviews.sort_values(by=['user_id', 'time'])
+
+            user_interactions = (
+                reviews_sorted.groupby('user_id')['gmap_id']
+                .apply(list)
+                .to_dict()
+            )
+
+            feat_dicts[name] = user_interactions
+
     avg_rating = reviews["rating"].mean()
 
     return feat_dicts, avg_rating
-
+    
 class CafeDatasetLatent(Dataset):
     def __init__(self, mode, feat_names, feat_dicts, subset):
         if subset:
@@ -128,6 +205,15 @@ class CafeDatasetLatent(Dataset):
 
             elif name == "hour":
                 feat_sizes[name] = 24
+
+            elif name == "price":
+                feat_sizes[name] = 3
+
+            elif name == "open_hours":
+                feat_sizes[name] = 3
+            
+            elif name == "prev":
+                feat_sizes[name] = len(self.feat_dicts["cafe"].keys())
 
             else:
                 raise NotImplementedError
@@ -165,6 +251,28 @@ class CafeDatasetLatent(Dataset):
                 feat = torch.tensor(unix_hour_to_onehot(int(review[3])))
                 feats.append(feat)
 
+            elif name == "price":
+                feat_dict = self.feat_dicts[name]
+                feat = torch.tensor(price_to_onehot(feat_dict[review[0]]))
+                feats.append(feat)
+
+            elif name == "open_hours":
+                feat_dict = self.feat_dicts[name]
+                feat = torch.tensor(hours_to_onehot(feat_dict[review[0]]))
+                feats.append(feat)
+
+            elif name == "prev":
+                cafe_feat_dict = self.feat_dicts['cafe']    # All cafes
+                feat_dict = self.feat_dicts[name]           # List of user -> list of all cafes user rated
+                feat = torch.zeros(len(cafe_feat_dict.keys()))
+                user = review[1]
+                current_item = review[0]
+                i = feat_dict[user].index(current_item)     # Get index of current cafe in user list
+                if i > 0:
+                    prev_item = feat_dict[user][i-1]
+                    feat[cafe_feat_dict[prev_item]] = 1.
+                feats.append(feat)
+            
             else:
                 raise NotImplementedError
 
