@@ -1,10 +1,16 @@
 from datetime import datetime, timezone
+import json
 
 import numpy as np
 import pandas as pd
 import tqdm
 import re
 import ast
+
+import geopandas as gpd
+from shapely.geometry import Point
+from datetime import datetime, timezone
+from functools import lru_cache
 
 import torch
 import torch.nn as nn
@@ -85,6 +91,34 @@ def hours_to_onehot(hour_str):
         return [0,1.,0]
     return [0,0,1.]
 
+@lru_cache(maxsize=1)
+def get_counties_ca():
+    counties = gpd.read_file("resources/cb_2018_us_county_500k.shp")
+    counties_ca = counties[counties["STATEFP"] == "06"]  # California only
+    counties_ca = counties_ca.sort_values("NAME").reset_index(drop=True)
+    counties_ca["COUNTY_NUM"] = counties_ca.index
+    counties_ca = counties_ca.set_geometry("geometry")
+    _ = counties_ca.sindex
+    return counties_ca
+
+def get_county(lat, lon):
+    counties_ca = get_counties_ca()
+    point = Point(lon, lat)  # geometry expects (lon, lat)
+    idx = list(counties_ca.sindex.intersection(point.bounds))
+    if not idx:
+        return None
+    candidates = counties_ca.iloc[idx]
+    matches = candidates[candidates.contains(point)]
+    return int(matches.iloc[0]["COUNTY_NUM"]) if len(matches) else None
+
+def location_to_onehot(location):
+    feature_county =[0]*58  # 58 counties in Cali
+
+    index = get_county(location[0],location[1])
+    if index is not None: feature_county[index] = 1.
+
+    return feature_county
+
 class RatePredictorLatent(nn.Module):
     def __init__(self, name, dim, feat_sizes, latent_names, latent_pairs, avg_rating):
         super().__init__()
@@ -143,6 +177,9 @@ def preprocess_data_latent(feat_names, subset):
         reviews = pd.read_csv("./datasets/processed/reviews.csv")
         cafes = pd.read_csv("./datasets/processed/cafes.csv")
 
+    with open("./resources/chains.json", "r") as f:
+        chains = json.load(f)
+    
     feat_dicts = {}
     for name in feat_names:
         if name == "user":
@@ -170,6 +207,22 @@ def preprocess_data_latent(feat_names, subset):
             indices = indices[order]
             cafe2hours = {gmap_id: cafes["hours"][index] for gmap_id, index in zip(unique_gmap_ids, indices)}
             feat_dicts[name] = cafe2hours
+
+        elif name == "location":
+            unique_gmap_ids, indices = np.unique(cafes["gmap_id"], return_index=True)
+            order = np.argsort(unique_gmap_ids)
+            unique_gmap_ids = unique_gmap_ids[order]
+            indices = indices[order]
+            cafe2location = {gmap_id: (cafes["latitude"][index],cafes["longitude"][index]) for gmap_id, index in zip(unique_gmap_ids, indices)}
+            feat_dicts[name] = cafe2location
+
+        elif name == "chains":
+            unique_gmap_ids, indices = np.unique(cafes["gmap_id"], return_index=True)
+            order = np.argsort(unique_gmap_ids)
+            unique_gmap_ids = unique_gmap_ids[order]
+            indices = indices[order]
+            cafe2chain = {gmap_id: chains[cafes["name"][index]] for gmap_id, index in zip(unique_gmap_ids, indices)}
+            feat_dicts[name] = cafe2chain
 
         elif name == "prev":
             reviews_sorted = reviews.sort_values(by=['user_id', 'time'])
@@ -220,6 +273,12 @@ class CafeDatasetLatent(Dataset):
 
             elif name == "open_hours":
                 feat_sizes[name] = 3
+
+            elif name == "location":
+                feat_sizes[name] = 58
+
+            elif name == "chains":
+                feat_sizes[name] = 3
             
             elif name == "prev":
                 feat_sizes[name] = len(self.feat_dicts["cafe"].keys())
@@ -268,6 +327,17 @@ class CafeDatasetLatent(Dataset):
             elif name == "open_hours":
                 feat_dict = self.feat_dicts[name]
                 feat = torch.tensor(hours_to_onehot(feat_dict[review[0]]))
+                feats.append(feat)
+
+            elif name == "location":
+                feat_dict = self.feat_dicts[name]
+                feat = torch.tensor(location_to_onehot(feat_dict[review[0]]))
+                feats.append(feat)
+
+            elif name == "chains":
+                feat_dict = self.feat_dicts[name]
+                feat = torch.zeros(3)
+                feat[feat_dict[review[0]]] = 1.
                 feats.append(feat)
 
             elif name == "prev":
