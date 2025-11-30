@@ -17,14 +17,16 @@ if __name__ == "__main__":
         if not os.path.exists("./datasets/splits/train.csv"):
             split_reviews(subset)
 
-    lambs = [0, 2, 2, 2, 2, 2, 2, 2, 2]
+    lamb_dict = {"alpha": 0, "user": 0.5, "cafe": 0.5}
     n_epoch = 10
     lr = 0.01
     dim = 32
 
-    feat_names = ["alpha", "user", "cafe", "weekday", "hour"]
-    latent_names = ["user", "cafe", "weekday", "hour"]
-    latent_pairs = [("user", "cafe"), ("user", "weekday"), ("user", "hour")]
+    feat_names = ["alpha", "user", "cafe"]
+    latent_names = ["user", "cafe"]
+    latent_pairs = [("user", "cafe")]
+
+    lambs = [lamb_dict[feat] for feat in feat_names + latent_names]
 
     assert all([((latent_i in latent_names) and (latent_j in latent_names)) for (latent_i, latent_j) in latent_pairs])
     assert len(lambs) == len(feat_names) + len(latent_names)
@@ -33,7 +35,7 @@ if __name__ == "__main__":
 
     for (lambs, n_epoch, lr, dim) in params:
         lamb_str = "-".join([str(l) for l in lambs])
-        name = f"latent_torch_time_pairs_{lamb_str}_{n_epoch}_{lr}_{dim}"
+        name = f"latent_torch_{lamb_str}_{n_epoch}_{lr}_{dim}"
         if subset:
             name += "_subset"
 
@@ -43,7 +45,7 @@ if __name__ == "__main__":
         print(f"Start training {name}")
         batch_size = 2048
 
-        feat_dicts, avg_rating = preprocess_data_latent(feat_names)
+        feat_dicts, avg_rating = preprocess_data_latent(feat_names, subset=subset)
         train_dataset = CafeDatasetLatent("train", feat_names, feat_dicts, subset=subset)
         valid_dataset = CafeDatasetLatent("valid", feat_names, feat_dicts, subset=subset)
 
