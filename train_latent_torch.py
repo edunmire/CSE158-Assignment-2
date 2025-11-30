@@ -17,25 +17,27 @@ if __name__ == "__main__":
         if not os.path.exists("./datasets/splits/train.csv"):
             split_reviews(subset)
 
-    lamb_dict = {"alpha": 0, "user": 0.1, "cafe": 1}
     n_epoch = 10
     lr = 0.01
     dim = 32
 
-    feat_names = ["alpha", "user", "cafe"]
-    latent_names = ["user", "cafe"]
-    latent_pairs = [("user", "cafe")]
+    with open("./params.json", "r") as f:
+        params = json.load(f)
 
-    lambs = [lamb_dict[feat] for feat in feat_names + latent_names]
-    
-    assert all([((latent_i in latent_names) and (latent_j in latent_names)) for (latent_i, latent_j) in latent_pairs])
-    assert len(lambs) == len(feat_names) + len(latent_names)
+    for param_dict in params:
+        feat = param_dict["feat"]
+        feat_names = param_dict["feat_names"]
+        latent_names = param_dict["latent_names"]
+        latent_pairs = param_dict["latent_pairs"]
+        lamb_dict = param_dict["lamb_dict"]
 
-    params = [(lambs, n_epoch, lr, dim)]
+        lambs = [lamb_dict[feat] for feat in feat_names + latent_names]
 
-    for (lambs, n_epoch, lr, dim) in params:
+        assert all([((latent_i in latent_names) and (latent_j in latent_names)) for (latent_i, latent_j) in latent_pairs])
+        assert len(lambs) == len(feat_names) + len(latent_names)
+
         lamb_str = "-".join([str(l) for l in lambs])
-        name = f"latent_torch_{lamb_str}_{n_epoch}_{lr}_{dim}"
+        name = f"{feat}_{lamb_str}"
         if subset:
             name += "_subset"
 
