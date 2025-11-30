@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 
 import numpy as np
 import pandas as pd
@@ -176,6 +177,9 @@ def preprocess_data_latent(feat_names, subset):
         reviews = pd.read_csv("./datasets/processed/reviews.csv")
         cafes = pd.read_csv("./datasets/processed/cafes.csv")
 
+    with open("./resources/chains.json", "r") as f:
+        chains = json.load(f)
+    
     feat_dicts = {}
     for name in feat_names:
         if name == "user":
@@ -211,6 +215,14 @@ def preprocess_data_latent(feat_names, subset):
             indices = indices[order]
             cafe2location = {gmap_id: (cafes["latitude"][index],cafes["longitude"][index]) for gmap_id, index in zip(unique_gmap_ids, indices)}
             feat_dicts[name] = cafe2location
+
+        elif name == "chains":
+            unique_gmap_ids, indices = np.unique(cafes["gmap_id"], return_index=True)
+            order = np.argsort(unique_gmap_ids)
+            unique_gmap_ids = unique_gmap_ids[order]
+            indices = indices[order]
+            cafe2chain = {gmap_id: chains[cafes["name"][index]] for gmap_id, index in zip(unique_gmap_ids, indices)}
+            feat_dicts[name] = cafe2chain
 
         elif name == "prev":
             reviews_sorted = reviews.sort_values(by=['user_id', 'time'])
@@ -264,6 +276,9 @@ class CafeDatasetLatent(Dataset):
 
             elif name == "location":
                 feat_sizes[name] = 58
+
+            elif name == "chains":
+                feat_sizes[name] = 3
             
             elif name == "prev":
                 feat_sizes[name] = len(self.feat_dicts["cafe"].keys())
@@ -317,6 +332,12 @@ class CafeDatasetLatent(Dataset):
             elif name == "location":
                 feat_dict = self.feat_dicts[name]
                 feat = torch.tensor(location_to_onehot(feat_dict[review[0]]))
+                feats.append(feat)
+
+            elif name == "chains":
+                feat_dict = self.feat_dicts[name]
+                feat = torch.zeros(3)
+                feat[feat_dict[review[0]]] = 1.
                 feats.append(feat)
 
             elif name == "prev":
