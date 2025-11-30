@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import tqdm
 import re
+import ast
 
 import torch
 import torch.nn as nn
@@ -52,22 +53,30 @@ def unix_hour_to_onehot(time):
 
 # One Hot Encoding for Price
 def price_to_onehot(price):
-    feature_price = [0]*3
+    feature_price = [0]*4
     if price is not np.nan:
         feature_price[len(price)-1] += 1.
     return feature_price
 
 # One Hot Encoding for Open Hours
-def hours_to_onehot(hours):
+def hours_to_onehot(hour_str):
+    if hour_str is None or hour_str is np.nan:
+        return [0,0,0]
     before_noon = 0
     after_noon = 0
-
+    hours = ast.literal_eval(hour_str)
+    
     for entry in hours:
         if entry[1] == "Open 24 hours":
             return [1.,0,0]
+        if entry[1] == "Closed":
+            continue
         
         open_str, close_str = entry[1].split("–")
-        start_hr = int(np.floor(parse_time(open_str)))
+        try:
+            start_hr = int(np.floor(parse_time(open_str)))
+        except ValueError:
+            return [0,0,0]
         if start_hr < 13:
             before_noon += 1.
         else: after_noon += 1.
@@ -151,7 +160,7 @@ def preprocess_data_latent(feat_names, subset):
             order = np.argsort(unique_gmap_ids)
             unique_gmap_ids = unique_gmap_ids[order]
             indices = indices[order]
-            cafe2price = {gmap_id: cafes["prices"][index] for gmap_id, index in zip(unique_gmap_ids, indices)}
+            cafe2price = {gmap_id: cafes["price"][index] for gmap_id, index in zip(unique_gmap_ids, indices)}
             feat_dicts[name] = cafe2price
 
         elif name == "open_hours":
@@ -207,7 +216,7 @@ class CafeDatasetLatent(Dataset):
                 feat_sizes[name] = 24
 
             elif name == "price":
-                feat_sizes[name] = 3
+                feat_sizes[name] = 4
 
             elif name == "open_hours":
                 feat_sizes[name] = 3
