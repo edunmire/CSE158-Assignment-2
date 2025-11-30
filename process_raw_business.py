@@ -50,7 +50,7 @@ def filter_by_category(data, categories):
 def filter_by_num_reviews(data, min_num_reviews):
     return data["num_of_reviews"] >= min_num_reviews
 
-def filter_raw_business_data(filters):
+def filter_raw_business_data(filters, subset=False):
     businesses = []
     for business in parse(meta_path):
         if all([f(data=business) for f in filters]):
@@ -60,7 +60,12 @@ def filter_raw_business_data(filters):
     print(f"We obtained total of {len(businesses)} after filtering")
 
     df = pd.DataFrame(businesses)
-    df.to_csv(f"./datasets/processed/cafes.csv", index=False)
+
+    if subset:
+        os.makedirs("./datasets/subset", exist_ok=True)
+        df.to_csv(f"./datasets/subset/cafes.csv", index=False)
+    else:
+        df.to_csv(f"./datasets/processed/cafes.csv", index=False)
 
 if __name__ == "__main__":
     os.makedirs("./datasets/raw", exist_ok=True)
@@ -82,3 +87,14 @@ if __name__ == "__main__":
         num_reviews_filter = partial(filter_by_num_reviews, min_num_reviews=min_num_reviews)
 
         filter_raw_business_data([cafe_filter, num_reviews_filter])
+
+    if not os.path.exists("./datasets/subset/cafes.csv"):
+        min_num_reviews = 100
+
+        with open("./datasets/processed/cafe_categories.txt", "r") as f:
+            cafe_categories = set(f.read().split("\n"))
+
+        cafe_filter = partial(filter_by_category, categories=cafe_categories)
+        num_reviews_filter = partial(filter_by_num_reviews, min_num_reviews=min_num_reviews)
+
+        filter_raw_business_data([cafe_filter, num_reviews_filter], subset=True)

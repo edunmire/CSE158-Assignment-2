@@ -36,6 +36,9 @@ The dataset contains mainly three tables `cafes.csv`, `reviews.csv`, and `users.
 
 where `gmap_id` is a unique identifier for cafe. You can see sample code for loading dataset in `load_datasets.py`.
 
+## Slide Deck
+Accompanying slideshow can be found [here](https://docs.google.com/presentation/d/11ZKJ7nfIkxqvBVUuXNaTIMnfWxxfUP4h8aal-7oJJm0/edit?usp=sharing).
+
 -----------------------------------------------------------------------------------
 
 # TODO - Copied from Assignment 2 Requirements
