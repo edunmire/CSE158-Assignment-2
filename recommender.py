@@ -1,9 +1,15 @@
 from datetime import datetime, timezone
 import json
+import os
+from collections import defaultdict
 
 import torch
 from torch.utils.data import Dataset, DataLoader
 import pandas as pd
+import tqdm
+
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from rate_prediction_latent_torch import *
 
@@ -55,7 +61,7 @@ def recommend_random_sampled_users(recommenders, num_samples, subset):
         print("=" * 80)
         print()
 
-def analyze_consumption_vs_recommendation(recommender, num_samples, subset):
+def save_batch_recommendations(recommenders, num_samples, subset):
     if subset:
         users = pd.read_csv("./datasets/subset/users.csv")
         reviews = pd.read_csv("./datasets/subset/reviews.csv")
@@ -69,10 +75,82 @@ def analyze_consumption_vs_recommendation(recommender, num_samples, subset):
 
     sampled_users = users.sample(num_samples, random_state=42)
 
-    all_cafes = []
-    for (user_id, num_reviews) in sampled_users.values:
-        recommended_cafes, pred_ratings = recommender.recommend(user_id)
-        all_cafes += recommended_cafes
+    recommendations = {}
+    for recommender_name, recommender in recommenders.items():
+        all_cafes = []
+        for (user_id, _) in tqdm.tqdm(sampled_users.values):
+            recommended_cafes, _ = recommender.recommend(user_id)
+            all_cafes += list(recommended_cafes)
+
+        recommendations[recommender_name] = all_cafes
+
+    os.makedirs("./results", exist_ok=True)
+    with open("./results/batch_recommendations.json", "w") as f:
+        json.dump(recommendations, f)
+
+def plot_consumptions(subset):
+    if subset:
+        users = pd.read_csv("./datasets/subset/users.csv")
+        reviews = pd.read_csv("./datasets/subset/reviews.csv")
+        cafes = pd.read_csv("./datasets/subset/cafes.csv")
+    else:
+        users = pd.read_csv("./datasets/processed/users.csv")
+        reviews = pd.read_csv("./datasets/processed/reviews.csv")
+        cafes = pd.read_csv("./datasets/processed/cafes.csv")
+
+    review_counts = reviews.groupby("gmap_id")["rating"].agg(["count", "mean"])
+    gmap_ids = review_counts.index.values
+    counts = review_counts["count"].values
+    avg_ratings = review_counts["mean"].values
+
+    indices = np.argsort(counts)[::-1]
+
+    with open("./results/batch_recommendations.json", "r") as f:
+        recommendations = {key: np.array(values) for key, values in json.load(f).items()}
+
+    freqs = []
+    for index in indices:
+        gmap_id = gmap_ids[index]
+        count = counts[index]
+        avg_rating = avg_ratings[index]
+
+        items = []
+        for _, values in recommendations.items():
+            items.append(int(np.sum(np.array(values) == gmap_id)))
+
+        freqs.append([gmap_id, avg_rating * 100, int(count)] + items)
+
+    df = pd.DataFrame(freqs, columns=["gmap_id", "avg_rating", "counts"] + list(recommendations.keys()))
+    sub_df = df.iloc[:100]
+
+    sns.set_theme(style="whitegrid", palette="viridis")
+    plt.figure(figsize=(20, 10))
+    sns.barplot(sub_df, x="gmap_id", y="counts", width=1.0, alpha=0.4)
+    sns.lineplot(sub_df, x="gmap_id", y="avg_rating", label="Average Rating")
+
+    for key in recommendations.keys():
+        sns.lineplot(sub_df, x="gmap_id", y=key, label=key, linewidth=5)
+
+    plt.title("Consumption and recommended frequencies of cafes")
+    plt.xlabel("Sorted list of cafes")
+    plt.xticks([])
+    plt.ylabel("Frequency")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("./results/consumption.png")
+
+    sns.set_theme(style="whitegrid", palette="viridis")
+    plt.figure(figsize=(20, 10))
+    for key in ["Cosine", "Norm"]:
+        sns.histplot(df, x=key, label=key, alpha=0.4, bins=np.arange(11))
+
+    plt.title("Histogram of recommendations for each method.")
+    plt.xlabel("The number of recommendations")
+    plt.ylabel("Frequency")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig("./results/recomendation_hist.png")
+
 
 class CafeDatasetRecommender(CafeDatasetLatent):
     def __init__(self, user_id, feat_names, feat_dicts, subset):
@@ -316,4 +394,11 @@ if __name__ == "__main__":
     cosine_recommender = CosineBasedCafeRecommender(name, num_recommends, device, subset=subset)
     norm_recommender = NormBasedCafeRecommender(name, num_recommends, device, subset=subset)
     recommenders = {"Rank": rank_recommender, "Cosine": cosine_recommender, "Norm": norm_recommender}
-    recommend_random_sampled_users(recommenders, 10, subset=subset)
+    # recommend_random_sampled_users(recommenders, 10, subset=subset)
+
+    num_samples = 1000
+
+    if not os.path.exists("./results/batch_recommendations.json"):
+        save_batch_recommendations(recommenders, num_samples, subset=subset)
+
+    plot_consumptions(subset=subset)
