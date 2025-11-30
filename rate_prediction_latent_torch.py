@@ -76,9 +76,13 @@ class RatePredictorLatent(nn.Module):
 
         return out
 
-def preprocess_data_latent(feat_names):
-    reviews = pd.read_csv("./datasets/processed/reviews.csv")
-    cafes = pd.read_csv("./datasets/processed/cafes.csv")
+def preprocess_data_latent(feat_names, subset):
+    if subset:
+        reviews = pd.read_csv("./datasets/subset/reviews.csv")
+        cafes = pd.read_csv("./datasets/subset/cafes.csv")
+    else:
+        reviews = pd.read_csv("./datasets/processed/reviews.csv")
+        cafes = pd.read_csv("./datasets/processed/cafes.csv")
 
     feat_dicts = {}
     for name in feat_names:
