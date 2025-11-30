@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 import tqdm
+from collections import defaultdict
 
 import torch
 import torch.nn as nn
@@ -53,7 +54,7 @@ def unix_hour_to_onehot(time):
 def price_to_onehot(price):
     feature_price = [0]*3
     if price is not np.nan:
-        feature_price[len(price)-1] += 1
+        feature_price[len(price)-1] += 1.
     return feature_price
 
 # One Hot Encoding for Open Hours
@@ -63,17 +64,17 @@ def hours_to_onehot(hours):
 
     for entry in hours:
         if entry[1] == "Open 24 hours":
-            return [1,0,0]
+            return [1.,0,0]
         
         open_str, close_str = entry[1].split("–")
         start_hr = int(np.floor(parse_time(open_str)))
         if start_hr < 13:
-            before_noon += 1
-        else: after_noon += 1
+            before_noon += 1.
+        else: after_noon += 1.
     
     if before_noon > after_noon:
-        return [0,1,0]
-    return [0,0,1]
+        return [0,1.,0]
+    return [0,0,1.]
 
 class RatePredictorLatent(nn.Module):
     def __init__(self, name, dim, feat_sizes, latent_names, latent_pairs, avg_rating):
@@ -195,6 +196,9 @@ class CafeDatasetLatent(Dataset):
 
             elif name == "open_hours":
                 feat_sizes[name] = 3
+            
+            elif name == "prev":
+                feat_sizes[name] = len(self.feat_dicts[name].keys())
 
             else:
                 raise NotImplementedError
@@ -242,6 +246,12 @@ class CafeDatasetLatent(Dataset):
                 feat = torch.tensor(hours_to_onehot(feat_dict[review[0]]))
                 feats.append(feat)
 
+            elif name == "prev":
+                feat_dict = self.feat_dicts[name]
+                feat = torch.zeros(len(feat_dict.keys()))
+                feat[feat_dict[review[0]]] = 1.
+                feats.append(feat)
+            
             else:
                 raise NotImplementedError
 
