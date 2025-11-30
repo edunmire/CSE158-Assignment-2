@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 import tqdm
-from collections import defaultdict
+import re
 
 import torch
 import torch.nn as nn
