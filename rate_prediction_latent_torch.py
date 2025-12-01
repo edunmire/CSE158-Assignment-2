@@ -71,13 +71,13 @@ def hours_to_onehot(hour_str):
     before_noon = 0
     after_noon = 0
     hours = ast.literal_eval(hour_str)
-    
+
     for entry in hours:
         if entry[1] == "Open 24 hours":
             return [1.,0,0]
         if entry[1] == "Closed":
             continue
-        
+
         open_str, close_str = entry[1].split("–")
         try:
             start_hr = int(np.floor(parse_time(open_str)))
@@ -86,7 +86,7 @@ def hours_to_onehot(hour_str):
         if start_hr < 13:
             before_noon += 1.
         else: after_noon += 1.
-    
+
     if before_noon > after_noon:
         return [0,1.,0]
     return [0,0,1.]
@@ -114,13 +114,13 @@ def get_county(lat, lon):
 def location_to_onehot(location):
     feature_county =[0]*58  # 58 counties in Cali
 
-    index = get_county(location[0],location[1])
-    if index is not None: feature_county[index] = 1.
+    if location is not None:
+        feature_county[location] = 1.
 
     return feature_county
 
 class RatePredictorLatent(nn.Module):
-    def __init__(self, name, dim, feat_sizes, latent_names, latent_pairs, avg_rating):
+    def __init__(self, name, dim, feat_sizes, latent_names, latent_pairs, avg_rating, share_latents=False):
         super().__init__()
 
         self.name = name
@@ -139,7 +139,13 @@ class RatePredictorLatent(nn.Module):
                 weight = torch.zeros(feat_size)
             weights.append(nn.Parameter(weight, requires_grad=True))
 
+            cafe_index = None
             if name in latent_names:
+                if share_latents:
+                    if name == "cafe":
+                        cafe_index = i
+                    elif name == "prev":
+                        self.latent_indices.append(cafe_index)
                 self.latent_indices.append(i)
 
         self.weights =  nn.ParameterList(weights)
@@ -179,7 +185,7 @@ def preprocess_data_latent(feat_names, subset):
 
     with open("./resources/chains.json", "r") as f:
         chains = json.load(f)
-    
+
     feat_dicts = {}
     for name in feat_names:
         if name == "user":
@@ -213,7 +219,7 @@ def preprocess_data_latent(feat_names, subset):
             order = np.argsort(unique_gmap_ids)
             unique_gmap_ids = unique_gmap_ids[order]
             indices = indices[order]
-            cafe2location = {gmap_id: (cafes["latitude"][index],cafes["longitude"][index]) for gmap_id, index in zip(unique_gmap_ids, indices)}
+            cafe2location = {gmap_id: get_county(cafes["latitude"][index],cafes["longitude"][index]) for gmap_id, index in zip(unique_gmap_ids, indices)}
             feat_dicts[name] = cafe2location
 
         elif name == "chains":
@@ -238,7 +244,7 @@ def preprocess_data_latent(feat_names, subset):
     avg_rating = reviews["rating"].mean()
 
     return feat_dicts, avg_rating
-    
+
 class CafeDatasetLatent(Dataset):
     def __init__(self, mode, feat_names, feat_dicts, subset):
         if subset:
@@ -279,7 +285,7 @@ class CafeDatasetLatent(Dataset):
 
             elif name == "chains":
                 feat_sizes[name] = 3
-            
+
             elif name == "prev":
                 feat_sizes[name] = len(self.feat_dicts["cafe"].keys())
 
@@ -351,7 +357,7 @@ class CafeDatasetLatent(Dataset):
                     prev_item = feat_dict[user][i-1]
                     feat[cafe_feat_dict[prev_item]] = 1.
                 feats.append(feat)
-            
+
             else:
                 raise NotImplementedError
 
