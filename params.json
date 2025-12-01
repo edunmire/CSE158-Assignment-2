@@ -16,6 +16,30 @@
         "test": 1
     },
     {
+        "feat": "chains",
+        "feat_names": ["alpha", "user", "cafe", "chains"],
+        "latent_names": ["user", "cafe", "chains"],
+        "latent_pairs": [["user", "cafe"], ["user", "chains"]],
+        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "chains": 0.01},
+        "test": 1
+    },
+    {
+        "feat": "chains",
+        "feat_names": ["alpha", "user", "cafe", "chains"],
+        "latent_names": ["user", "cafe", "chains"],
+        "latent_pairs": [["user", "cafe"], ["user", "chains"]],
+        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "chains": 0.1},
+        "test": 1
+    },
+    {
+        "feat": "chains",
+        "feat_names": ["alpha", "user", "cafe", "chains"],
+        "latent_names": ["user", "cafe", "chains"],
+        "latent_pairs": [["user", "cafe"], ["user", "chains"]],
+        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "chains": 1},
+        "test": 1
+    },
+    {
         "feat": "price",
         "feat_names": ["alpha", "user", "cafe", "price"],
         "latent_names": ["user", "cafe", "price"],
@@ -85,6 +109,14 @@
         "latent_names": ["user", "cafe", "prev"],
         "latent_pairs": [["user", "cafe"], ["cafe", "prev"]],
         "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "prev": 1},
+        "test": 1
+    },
+    {
+        "feat": "location",
+        "feat_names": ["alpha", "user", "cafe", "location"],
+        "latent_names": ["user", "cafe", "location"],
+        "latent_pairs": [["user", "cafe"], ["user", "location"]],
+        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "location": 1},
         "test": 1
     }
 ]
