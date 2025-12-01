@@ -3,21 +3,32 @@ import os
 from utils import *
 from rate_prediction_latent_torch import *
 from test_torch import update_test_results
+import load_datasets
 
+import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
+
+import pandas as pd
+import numpy as np
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+
 
 def calculate_mse(y_true, y_pred):
     return torch.mean((y_true - y_pred) ** 2)
 
+
 def calculate_rmse(y_true, y_pred):
     return torch.sqrt(torch.mean((y_true - y_pred) ** 2))
+
 
 def discrete_rating(y_pred):
     y_pred = torch.clamp(y_pred, min=0, max=5)
     y_pred = torch.round(y_pred)
-
+    
     return y_pred
+
 
 def test_model(name, test_dataloader, model, device):
     with torch.no_grad():
@@ -50,11 +61,121 @@ def test_model(name, test_dataloader, model, device):
         return {"name": name, "mse": test_mse, "rmse": test_rmse, "accuracy": test_accuracy}
 
 
+def visualize_cafe_latents_with_pca(model, run_name):
+    
+    print(f"[{run_name}] Building PCA visualization of cafe latents...")
+
+    # Loading cafe metadata
+    cafes, users, reviews = load_datasets.load_table_data()
+    num_cafes = len(cafes)
+
+    state = model.state_dict()
+
+    # Finding 2D parameters whose first dimension is close to num_cafes
+    candidates = []
+    for name, tensor in state.items():
+        if not torch.is_tensor(tensor):
+            continue
+        if tensor.ndim != 2:
+            continue
+        n_rows, n_cols = tensor.shape
+        score = abs(n_rows - num_cafes)
+        candidates.append((score, name, n_rows, n_cols, tensor))
+
+    if not candidates:
+        print(f"[{run_name}] WARNING: No suitable 2D parameters found in model. "
+              "Skipping PCA visualization.")
+        return
+
+    # Choosing the parameter that has row-count closest to the number of cafes
+    candidates.sort(key=lambda x: x[0])
+    best_score, best_name, n_rows, n_cols, best_tensor = candidates[0]
+
+    print(
+        f"[{run_name}] Using parameter '{best_name}' with shape "
+        f"({n_rows}, {n_cols}) (score={best_score}, num_cafes={num_cafes})."
+    )
+
+    item_latents = best_tensor.detach().cpu().numpy()
+
+    # Aligning the embeddings with cafes table
+    n = min(n_rows, num_cafes)
+    cafe_latents = item_latents[:n]
+    cafes_vis = cafes.iloc[:n].copy()
+
+    # Building metadata DataFrame for plotting
+    cafe_meta = cafes_vis[["gmap_id", "avg_rating", "price"]].copy()
+    cafe_meta["avg_rating"] = pd.to_numeric(cafe_meta["avg_rating"], errors="coerce")
+
+    def price_to_num(p):
+        if pd.isna(p):
+            return np.nan
+        p = str(p).strip()
+        if p == "" or p.lower() == "none":
+            return np.nan
+        return p.count("$") or np.nan
+
+    cafe_meta["price_num"] = cafe_meta["price"].apply(price_to_num)
+
+    # PCA to 2D
+    pca = PCA(n_components=2, random_state=0)
+    Z = pca.fit_transform(cafe_latents)
+
+    cafe_meta["pc1"] = Z[:, 0]
+    cafe_meta["pc2"] = Z[:, 1]
+
+    os.makedirs("plots", exist_ok=True)
+
+    # Plot 1: colored by average rating
+    plt.figure(figsize=(6, 5))
+    sc = plt.scatter(
+        cafe_meta["pc1"],
+        cafe_meta["pc2"],
+        c=cafe_meta["avg_rating"],
+        cmap="viridis",
+        alpha=0.6,
+        s=10,
+    )
+    plt.colorbar(sc, label="Average rating")
+    plt.xlabel("PC1")
+    plt.ylabel("PC2")
+    plt.title("Cafe latent space (PCA) colored by avg rating")
+    plt.tight_layout()
+    out1 = f"plots/cafe_latent_pca_by_rating_{run_name}.png"
+    plt.savefig(out1, dpi=150)
+    plt.close()
+
+    # Plot 2: colored by price level
+    plt.figure(figsize=(6, 5))
+    sc = plt.scatter(
+        cafe_meta["pc1"],
+        cafe_meta["pc2"],
+        c=cafe_meta["price_num"],
+        cmap="plasma",
+        alpha=0.6,
+        s=10,
+    )
+    plt.colorbar(sc, label="Price level (# of $)")
+    plt.xlabel("PC1")
+    plt.ylabel("PC2")
+    plt.title("Cafe latent space (PCA) colored by price")
+    plt.tight_layout()
+    out2 = f"plots/cafe_latent_pca_by_price_{run_name}.png"
+    plt.savefig(out2, dpi=150)
+    plt.close()
+
+    print(f"[{run_name}] Saved PCA plots to:")
+    print(f"  {out1}")
+    print(f"  {out2}")
+
+
 if __name__ == "__main__":
     subset = True
 
     with open("./params.json", "r") as f:
         params = json.load(f)
+
+    pca_done = False
 
     for param_dict in params:
         feat = param_dict["feat"]
@@ -72,16 +193,23 @@ if __name__ == "__main__":
         if subset:
             name += "_subset"
 
-
+        
         batch_size = 2048
         feat_dicts, avg_rating = preprocess_data_latent(feat_names, subset=subset)
 
         test_dataset = CafeDatasetLatent("test", feat_names, feat_dicts, subset=subset)
         test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
-        model = torch.load(f"./models/{name}.pt", weights_only=False)
+        model_path = f"./models/{name}.pt"
+        print(f"Loading model from {model_path}")
+        model = torch.load(model_path, weights_only=False)
 
         device = torch.device("cpu")
         result = test_model(name, test_dataloader, model, device)
-
+        
         update_test_results(result)
+
+        # Running PCA visualization once (for the latent model)
+        if feat == "latent" and not pca_done:
+            visualize_cafe_latents_with_pca(model, name)
+            pca_done = True
