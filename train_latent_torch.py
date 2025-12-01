@@ -30,13 +30,9 @@ if __name__ == "__main__":
         latent_names = param_dict["latent_names"]
         latent_pairs = param_dict["latent_pairs"]
         lamb_dict = param_dict["lamb_dict"]
+        share_latents = param_dict.get("share_latents", 0)
 
-        lambs = [lamb_dict[feat] for feat in feat_names + latent_names]
-
-        assert all([((latent_i in latent_names) and (latent_j in latent_names)) for (latent_i, latent_j) in latent_pairs])
-        assert len(lambs) == len(feat_names) + len(latent_names)
-
-        lamb_str = "-".join([str(l) for l in lambs])
+        lamb_str = "_".join([f"{name}-{value}" for name, value in lamb_dict.items()])
         name = f"{feat}_{lamb_str}"
         if subset:
             name += "_subset"
@@ -55,14 +51,12 @@ if __name__ == "__main__":
         valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True)
 
         feat_sizes = train_dataset.get_feat_sizes()
-        model = RatePredictorLatent(name, dim, feat_sizes, latent_names, latent_pairs, avg_rating)
+        model = RatePredictorLatent(name, dim, feat_sizes, latent_names, latent_pairs, avg_rating, share_latents=share_latents)
 
         device = torch.device("cpu")
-        trainer = RateTrainerLatent(model, lambs, lr, train_dataloader, valid_dataloader, device)
-
-        train_mses, valid_mses = trainer.train(n_epoch)
+        trainer = RateTrainerLatent(model, lamb_dict, lr, train_dataloader, valid_dataloader, device)
 
         os.makedirs("./models", exist_ok=True)
-        torch.save(model, f"./models/{name}.pt")
+        train_mses, valid_mses = trainer.train(n_epoch)
 
         update_metrics(name, train_mses, valid_mses)
