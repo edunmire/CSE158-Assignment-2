@@ -117,6 +117,38 @@ def visualize_cafe_latents_with_pca(model, run_name):
 
     cafe_meta["price_num"] = cafe_meta["price"].apply(price_to_num)
 
+    if "name" in cafes_vis.columns:
+        cafe_meta["name"] = cafes_vis["name"].astype(str)
+
+        # Counting how many times each business name appears
+        name_counts = cafe_meta["name"].value_counts()
+        cafe_meta["chain_size"] = cafe_meta["name"].map(name_counts)
+
+        CHAIN_SIZE_THRESHOLD = 10 # Considering a chain if the same name appears at least this many times
+        cafe_meta["is_chain"] = cafe_meta["chain_size"] >= CHAIN_SIZE_THRESHOLD
+
+
+        known_chain_keywords = [
+            "starbucks",
+            "dunkin",
+            "dunkin donuts",
+            "peet",
+            "philz",
+            "blue bottle",
+            "coffee bean",
+            "tim hortons",
+            "caribou",
+            "costa",
+        ]
+
+        name_lower = cafe_meta["name"].str.lower()
+        for kw in known_chain_keywords:
+            cafe_meta["is_chain"] = cafe_meta["is_chain"] | name_lower.str.contains(
+                kw, na=False
+            )
+    else:
+        cafe_meta["is_chain"] = False
+
     # PCA to 2D
     pca = PCA(n_components=2, random_state=0)
     Z = pca.fit_transform(cafe_latents)
@@ -164,9 +196,47 @@ def visualize_cafe_latents_with_pca(model, run_name):
     plt.savefig(out2, dpi=150)
     plt.close()
 
+    # Plot 3: chains vs non-chains
+    out3 = None
+    if "name" in cafes_vis.columns:
+        plt.figure(figsize=(6, 5))
+
+        mask_chain = cafe_meta["is_chain"]
+        mask_non_chain = ~mask_chain
+
+        # Non-chains / small places
+        plt.scatter(
+            cafe_meta.loc[mask_non_chain, "pc1"],
+            cafe_meta.loc[mask_non_chain, "pc2"],
+            alpha=0.3,
+            s=8,
+            label="Non-chain / small",
+        )
+
+        # Chains
+        if mask_chain.any():
+            plt.scatter(
+                cafe_meta.loc[mask_chain, "pc1"],
+                cafe_meta.loc[mask_chain, "pc2"],
+                alpha=0.8,
+                s=30,
+                label="Chains",
+            )
+
+        plt.xlabel("PC1")
+        plt.ylabel("PC2")
+        plt.title("Cafe latent space (PCA) – chains vs non-chains")
+        plt.legend(loc="best", fontsize=8)
+        plt.tight_layout()
+        out3 = f"plots/cafe_latent_pca_by_chain_{run_name}.png"
+        plt.savefig(out3, dpi=150)
+        plt.close()
+
     print(f"[{run_name}] Saved PCA plots to:")
     print(f"  {out1}")
     print(f"  {out2}")
+    if out3 is not None:
+        print(f"  {out3}")
 
 
 if __name__ == "__main__":
