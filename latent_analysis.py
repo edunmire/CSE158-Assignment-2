@@ -147,6 +147,9 @@ def plot_top_two_componets(df, name, category):
         )
         ax.get_legend().remove()
 
+    elif category == "chain" or category == "famous_chain":
+        sns.scatterplot(df, x="component_0", y="component_1", style="category", hue="category", alpha=0.4)
+
     else:
         sns.scatterplot(df, x="component_0", y="component_1", hue="category", alpha=0.4)
 
@@ -205,7 +208,6 @@ def train_classifier(latents, category, categories, name):
         print(f"Accuracy for SVM to predict {category} is {accuracy}")
 
 
-
 def visualize_cafe_latents_with_pca(model, run_name):
 
     print(f"[{run_name}] Building PCA visualization of cafe latents...")
@@ -249,7 +251,7 @@ def visualize_cafe_latents_with_pca(model, run_name):
     cafes_vis = cafes.iloc[:n].copy()
 
     # Building metadata DataFrame for plotting
-    cafe_meta = cafes_vis[["gmap_id", "avg_rating", "price"]].copy()
+    cafe_meta = cafes_vis[["gmap_id", "avg_rating", "price", "name"]].copy()
     cafe_meta["avg_rating"] = pd.to_numeric(cafe_meta["avg_rating"], errors="coerce")
 
     def price_to_num(p):
@@ -370,18 +372,105 @@ def visualize_cafe_latents_with_pca(model, run_name):
 
         plt.xlabel("PC1")
         plt.ylabel("PC2")
-        plt.title("Cafe latent space (PCA) – chains vs non-chains")
+        plt.title("Cafe latent space (PCA) - chains vs non-chains")
         plt.legend(loc="best", fontsize=8)
         plt.tight_layout()
         out3 = f"plots/cafe_latent_pca_by_chain_{run_name}.png"
         plt.savefig(out3, dpi=150)
         plt.close()
 
+    # Plot 4: Starbucks and McDonald's in the same PCA space
+    cafe_meta["name_lower"] = cafe_meta["name"].str.lower()
+
+    is_starbucks = cafe_meta["name_lower"].str.contains("starbucks", na=False)
+    is_mcdonalds = cafe_meta["name_lower"].str.contains("mcdonald", na=False)
+
+    plt.figure(figsize=(6, 5))
+    # All cafes in light gray
+    plt.scatter(
+        cafe_meta["pc1"],
+        cafe_meta["pc2"],
+        c="lightgray",
+        alpha=0.4,
+        s=10,
+        label="All cafes",
+    )
+    # Starbucks in green stars
+    plt.scatter(
+        cafe_meta.loc[is_starbucks, "pc1"],
+        cafe_meta.loc[is_starbucks, "pc2"],
+        c="green",
+        s=40,
+        marker="*",
+        label="Starbucks",
+    )
+    # McDonald's in red X
+    plt.scatter(
+        cafe_meta.loc[is_mcdonalds, "pc1"],
+        cafe_meta.loc[is_mcdonalds, "pc2"],
+        c="red",
+        s=40,
+        marker="x",
+        label="McDonald's",
+    )
+
+    plt.xlabel("PC1")
+    plt.ylabel("PC2")
+    plt.title("Cafe latent space (PCA) with Starbucks & McDonald's")
+    plt.legend()
+    plt.tight_layout()
+    out4 = f"plots/cafe_latent_pca_starbucks_mcdonalds_{run_name}.png"
+    plt.savefig(out4, dpi=150)
+    plt.close()
+
+
+    # PCA to 10 dimensions
+    pca10 = PCA(n_components=10, random_state=0)
+    Z10 = pca10.fit_transform(cafe_latents)
+
+    # Storing PC1–PC10
+    for i in range(10):
+        cafe_meta[f"pc{i+1}"] = Z10[:, i]
+
+    # Elbow Plot
+    explained_var = pca10.explained_variance_ratio_
+    plt.figure(figsize=(6, 4))
+    plt.plot(range(1, 11), explained_var, marker="o")
+    plt.xlabel("PCA Dimension")
+    plt.ylabel("Explained Variance Ratio")
+    plt.title("Elbow Plot of Top-10 PCA Dimensions")
+    plt.tight_layout()
+    out5 = f"plots/cafe_latent_pca_elbow_{run_name}.png"
+    plt.savefig(out5, dpi=150)
+    plt.close()
+
+    # Starbucks vs McDonald's Pairplot (Top-10 PCs)
+    sb_mask = is_starbucks | is_mcdonalds
+    sb_df = cafe_meta.loc[sb_mask, [f"pc{i+1}" for i in range(10)]].copy()
+
+    sb_df["brand"] = np.where(
+        is_starbucks.loc[sb_mask], "Starbucks", "McDonald's"
+    )
+
+    sns.pairplot(
+        sb_df,
+        hue="brand",
+        corner=True,
+        plot_kws={"alpha": 0.7, "s": 18},
+        diag_kws={"alpha": 0.7},
+    )
+
+    out6 = f"plots/cafe_latent_pca_starbucks_vs_mcdonalds_pairplot_{run_name}.png"
+    plt.savefig(out6, dpi=150)
+    plt.close()
+
     print(f"[{run_name}] Saved PCA plots to:")
     print(f"  {out1}")
     print(f"  {out2}")
-    if out3 is not None:
-        print(f"  {out3}")
+    print(f"  {out3}")
+    print(f"  {out4}")
+    print(f"  {out5}")
+    print(f"  {out6}")
 
 
 if __name__ == "__main__":

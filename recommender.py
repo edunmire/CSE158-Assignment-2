@@ -222,8 +222,8 @@ class LatentBasedCafeRecommender():
         self.name = name
         model = torch.load(f"./models/{name}.pt", weights_only=False)
 
-        self.user_latents = model.latents[0]
-        self.cafe_latents = model.latents[1]
+        self.user_latents = model.latents["user"]
+        self.cafe_latents = model.latents["cafe"]
 
         self.subset = subset
 
@@ -251,17 +251,17 @@ class LatentBasedCafeRecommender():
         with open("params.json", "r") as f:
             params = json.load(f)
 
-        for param in params:
-            feat = param["feat"]
-            feat_names = param["feat_names"]
-            latent_names = param["latent_names"]
-            lamb_dict = param["lamb_dict"]
+        for param_dict in params:
+            feat = param_dict["feat"]
+            feat_names = param_dict["feat_names"]
+            latent_names = param_dict["latent_names"]
+            latent_pairs = param_dict["latent_pairs"]
+            lamb_dict = param_dict["lamb_dict"]
+            share_latents = param_dict.get("share_latents", 0)
 
-            lambs = [lamb_dict[feat] for feat in feat_names + latent_names]
-            lamb_str = "-".join([str(l) for l in lambs])
-
+            lamb_str = "_".join([f"{name}-{value}" for name, value in lamb_dict.items()])
             model_name = f"{feat}_{lamb_str}"
-            if self.subset:
+            if subset:
                 model_name += "_subset"
 
             if model_name == name:
@@ -341,17 +341,17 @@ class RankBasedCafeRecommender():
         with open("params.json", "r") as f:
             params = json.load(f)
 
-        for param in params:
-            feat = param["feat"]
-            feat_names = param["feat_names"]
-            latent_names = param["latent_names"]
-            lamb_dict = param["lamb_dict"]
+        for param_dict in params:
+            feat = param_dict["feat"]
+            feat_names = param_dict["feat_names"]
+            latent_names = param_dict["latent_names"]
+            latent_pairs = param_dict["latent_pairs"]
+            lamb_dict = param_dict["lamb_dict"]
+            share_latents = param_dict.get("share_latents", 0)
 
-            lambs = [lamb_dict[feat] for feat in feat_names + latent_names]
-            lamb_str = "-".join([str(l) for l in lambs])
-
+            lamb_str = "_".join([f"{name}-{value}" for name, value in lamb_dict.items()])
             model_name = f"{feat}_{lamb_str}"
-            if self.subset:
+            if subset:
                 model_name += "_subset"
 
             if model_name == name:
@@ -387,7 +387,7 @@ if __name__ == "__main__":
     subset = True
     device = torch.device("cpu")
 
-    name = "latent_0-0.1-1-0.1-1_subset"
+    name = "base_latent_alpha-0_user-1_cafe-0.1_subset"
     num_recommends = 10
 
     rank_recommender = RankBasedCafeRecommender(name, num_recommends, device, subset=subset)
