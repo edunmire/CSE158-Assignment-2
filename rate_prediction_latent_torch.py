@@ -91,6 +91,30 @@ def hours_to_onehot(hour_str):
         return [0,1.,0]
     return [0,0,1.]
 
+# One Hot Encoding for Period
+def unix_period_to_onehot(unix_ms):
+    """
+      0 -> before 2016
+      1 -> 2016-2019
+      2 -> 2020 and later
+    """
+    if pd.isna(unix_ms):
+        return np.nan
+    try:
+        t = int(unix_ms)
+    except (ValueError, TypeError):
+        return np.nan
+
+    b2016_ms = int(pd.Timestamp("2016-01-01").timestamp() * 1000)
+    b2020_ms = int(pd.Timestamp("2020-01-01").timestamp() * 1000)
+
+    if t < b2016_ms:
+        return [0, 0, 0]
+    elif t < b2020_ms:
+        return [0, 1., 0]
+    else:
+        return [0, 0, 1.]
+
 @lru_cache(maxsize=1)
 def get_counties_ca():
     counties = gpd.read_file("resources/cb_2018_us_county_500k.shp")
@@ -133,6 +157,9 @@ class RatePredictorLatent(nn.Module):
 
         weights = {}
         for name, feat_size in feat_sizes.items():
+            if self.share_latents and name == "prev":
+                continue
+
             if name == "alpha":
                 weight = torch.tensor(avg_rating).unsqueeze(0)
             else:
@@ -152,16 +179,17 @@ class RatePredictorLatent(nn.Module):
     def forward(self, feats):
         out = torch.zeros(feats["alpha"].size(0)).to(feats["alpha"].device)
         for name in self.feat_names:
+            if self.share_latents and name == "prev":
+                continue
+
             out += torch.einsum("bd,d->b", feats[name], self.weights[name])
 
         gammas = {}
         for name in self.latent_names:
-            if self.share_latents and name == "prev":
-                latents = self.latents["cafe"]
-            else:
-                latents = self.latents[name]
+            gammas[name] = torch.einsum("bd,di->bi", feats[name], self.latents[name])
 
-            gammas[name] = torch.einsum("bd,di->bi", feats[name], latents)
+        if self.share_latents:
+            gammas["prev"] = torch.einsum("bd,di->bi", feats["prev"], self.latents["cafe"])
 
         for (latent_i, latent_j) in self.latent_pairs:
             out += torch.einsum("bi,bi->b", gammas[latent_i], gammas[latent_j])
@@ -279,6 +307,9 @@ class CafeDatasetLatent(Dataset):
             elif name == "chains":
                 feat_sizes[name] = 3
 
+            elif name == "period":
+                feat_sizes[name] = 3
+
             elif name == "prev":
                 feat_sizes[name] = len(self.feat_dicts["cafe"].keys())
 
@@ -337,6 +368,10 @@ class CafeDatasetLatent(Dataset):
                 feat_dict = self.feat_dicts[name]
                 feat = torch.zeros(3)
                 feat[feat_dict[review[0]]] = 1.
+                feats.append(feat)
+
+            elif name == "period":
+                feat = torch.tensor(unix_period_to_onehot(int(review[3])))
                 feats.append(feat)
 
             elif name == "prev":
@@ -436,12 +471,12 @@ class RateTrainerLatent():
     def regularizer(self):
         reg = 0
         for name in self.feat_names:
-            reg += self.lamb_dict[name] * torch.mean(self.model.weights[name] ** 2)
-
-        for name in self.latent_names:
             if self.model.share_latents and name == "prev":
                 continue
 
+            reg += self.lamb_dict[name] * torch.mean(self.model.weights[name] ** 2)
+
+        for name in self.latent_names:
             latents = self.model.latents[name]
             reg += self.lamb_dict[name] * latents.size(1) * torch.mean(latents ** 2)
 
