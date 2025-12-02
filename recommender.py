@@ -377,7 +377,7 @@ class RankBasedCafeRecommender():
             self.model.eval()
 
             for feats in dataloader:
-                feats = [f.to(self.device) for f in feats]
+                feats = {name: f.to(self.device) for name, f in zip(self.feat_names, feats)}
                 pred_ratings = self.model(feats).tolist()
                 predictions += pred_ratings
 
@@ -387,14 +387,14 @@ if __name__ == "__main__":
     subset = True
     device = torch.device("cpu")
 
-    name = "base_latent_alpha-0_user-1_cafe-0.1_subset"
+    name = "final_alpha-0_user-0.1_cafe-1_chains-0.1_price-0.1_open_hours-0.1_period-0.1_subset"
     num_recommends = 10
 
     rank_recommender = RankBasedCafeRecommender(name, num_recommends, device, subset=subset)
     cosine_recommender = CosineBasedCafeRecommender(name, num_recommends, device, subset=subset)
     norm_recommender = NormBasedCafeRecommender(name, num_recommends, device, subset=subset)
     recommenders = {"Rank": rank_recommender, "Cosine": cosine_recommender, "Norm": norm_recommender}
-    # recommend_random_sampled_users(recommenders, 10, subset=subset)
+    recommend_random_sampled_users(recommenders, 10, subset=subset)
 
     num_samples = 1000
 

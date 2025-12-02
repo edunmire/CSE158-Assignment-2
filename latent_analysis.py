@@ -476,7 +476,7 @@ def visualize_cafe_latents_with_pca(model, run_name):
 if __name__ == "__main__":
     subset = True
 
-    name = "base_latent_alpha-0_user-0.1_cafe-1_subset"
+    name = "final_alpha-0_user-0.1_cafe-1_chains-0.1_price-0.1_open_hours-0.1_period-0.1_subset"
     analyze_pca(name, "avg_rating", subset)
     analyze_pca(name, "chain", subset)
     analyze_pca(name, "price", subset)
