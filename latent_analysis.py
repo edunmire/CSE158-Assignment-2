@@ -7,10 +7,34 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+import geopandas as gpd
+from shapely.geometry import Point
+from functools import lru_cache
+
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.svm import SVC
 from sklearn.metrics import r2_score
+
+@lru_cache(maxsize=1)
+def get_counties_ca():
+    counties = gpd.read_file("resources/cb_2018_us_county_500k.shp")
+    counties_ca = counties[counties["STATEFP"] == "06"]  # California only
+    counties_ca = counties_ca.sort_values("NAME").reset_index(drop=True)
+    counties_ca["COUNTY_NUM"] = counties_ca.index
+    counties_ca = counties_ca.set_geometry("geometry")
+    _ = counties_ca.sindex
+    return counties_ca
+
+def get_county(lat, lon):
+    counties_ca = get_counties_ca()
+    point = Point(lon, lat)  # geometry expects (lon, lat)
+    idx = list(counties_ca.sindex.intersection(point.bounds))
+    if not idx:
+        return None
+    candidates = counties_ca.iloc[idx]
+    matches = candidates[candidates.contains(point)]
+    return int(matches.iloc[0]["COUNTY_NUM"]) if len(matches) else None
 
 def price_to_num(p):
     if pd.isna(p):
@@ -78,6 +102,8 @@ def get_category_mappings(cafes, category):
 
         cafe2category = {gmap_id: avg_rating for gmap_id, avg_rating in cafes[["gmap_id", "avg_rating"]].values}
 
+    elif category == "county":
+        cafe2category = {gmap_id: get_county(latitude, longitude) for (gmap_id, latitude, longitude) in cafes[["gmap_id", "latitude", "longitude"]].values}
     else:
         raise NotImplementedError
 
@@ -477,7 +503,8 @@ if __name__ == "__main__":
     subset = True
 
     name = "final_alpha-0_user-0.1_cafe-1_chains-0.1_price-0.1_open_hours-0.1_period-0.1_subset"
-    analyze_pca(name, "avg_rating", subset)
-    analyze_pca(name, "chain", subset)
-    analyze_pca(name, "price", subset)
-    analyze_pca(name, "famous_chain", subset)
+    analyze_pca(name, "county", subset)
+    # analyze_pca(name, "avg_rating", subset)
+    # analyze_pca(name, "chain", subset)
+    # analyze_pca(name, "price", subset)
+    # analyze_pca(name, "famous_chain", subset)
