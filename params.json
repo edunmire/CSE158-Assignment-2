@@ -8,11 +8,59 @@
         "test": 1
     },
     {
+        "feat": "base",
+        "feat_names": ["alpha", "user", "cafe"],
+        "latent_names": [],
+        "latent_pairs": [],
+        "lamb_dict": {"alpha": 0, "user": 1, "cafe": 0.1},
+        "test": 1
+    },
+    {
+        "feat": "base",
+        "feat_names": ["alpha", "user", "cafe"],
+        "latent_names": [],
+        "latent_pairs": [],
+        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 0.1},
+        "test": 1
+    },
+    {
+        "feat": "base",
+        "feat_names": ["alpha", "user", "cafe"],
+        "latent_names": [],
+        "latent_pairs": [],
+        "lamb_dict": {"alpha": 0, "user": 1, "cafe": 1},
+        "test": 1
+    },
+    {
         "feat": "base_latent",
         "feat_names": ["alpha", "user", "cafe"],
         "latent_names": ["user", "cafe"],
         "latent_pairs": [["user", "cafe"]],
         "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1},
+        "test": 1
+    },
+    {
+        "feat": "base_latent",
+        "feat_names": ["alpha", "user", "cafe"],
+        "latent_names": ["user", "cafe"],
+        "latent_pairs": [["user", "cafe"]],
+        "lamb_dict": {"alpha": 0, "user": 1, "cafe": 0.1},
+        "test": 1
+    },
+    {
+        "feat": "base_latent",
+        "feat_names": ["alpha", "user", "cafe"],
+        "latent_names": ["user", "cafe"],
+        "latent_pairs": [["user", "cafe"]],
+        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 0.1},
+        "test": 1
+    },
+    {
+        "feat": "base_latent",
+        "feat_names": ["alpha", "user", "cafe"],
+        "latent_names": ["user", "cafe"],
+        "latent_pairs": [["user", "cafe"]],
+        "lamb_dict": {"alpha": 0, "user": 1, "cafe": 1},
         "test": 1
     },
     {
