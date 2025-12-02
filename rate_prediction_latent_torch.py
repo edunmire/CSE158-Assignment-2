@@ -91,6 +91,30 @@ def hours_to_onehot(hour_str):
         return [0,1.,0]
     return [0,0,1.]
 
+# One Hot Encoding for Period
+def unix_period_to_onehot(unix_ms):
+    """
+      0 -> before 2016
+      1 -> 2016-2019
+      2 -> 2020 and later
+    """
+    if pd.isna(unix_ms):
+        return np.nan
+    try:
+        t = int(unix_ms)
+    except (ValueError, TypeError):
+        return np.nan
+
+    b2016_ms = int(pd.Timestamp("2016-01-01").timestamp() * 1000)
+    b2020_ms = int(pd.Timestamp("2020-01-01").timestamp() * 1000)
+
+    if t < b2016_ms:
+        return [0, 0, 0]
+    elif t < b2020_ms:
+        return [0, 1., 0]
+    else:
+        return [0, 0, 1.]
+
 @lru_cache(maxsize=1)
 def get_counties_ca():
     counties = gpd.read_file("resources/cb_2018_us_county_500k.shp")
@@ -124,51 +148,48 @@ class RatePredictorLatent(nn.Module):
         super().__init__()
 
         self.name = name
-        self.num_feats = len(feat_sizes)
-        self.num_latents = len(latent_names)
 
+        self.feat_names = list(feat_sizes.keys())
         self.latent_names = latent_names
         self.latent_pairs = latent_pairs
 
-        self.latent_indices = []
-        weights = []
-        for i, (name, feat_size) in enumerate(feat_sizes.items()):
+        self.share_latents = share_latents
+
+        weights = {}
+        for name, feat_size in feat_sizes.items():
+            if self.share_latents and name == "prev":
+                continue
+
             if name == "alpha":
                 weight = torch.tensor(avg_rating).unsqueeze(0)
             else:
                 weight = torch.zeros(feat_size)
-            weights.append(nn.Parameter(weight, requires_grad=True))
+            weights[name] = nn.Parameter(weight, requires_grad=True)
 
-            cafe_index = None
-            if name in latent_names:
-                if share_latents:
-                    if name == "cafe":
-                        cafe_index = i
-                    elif name == "prev":
-                        self.latent_indices.append(cafe_index)
-                self.latent_indices.append(i)
+        self.weights =  nn.ParameterDict(weights)
 
-        self.weights =  nn.ParameterList(weights)
-
-        latents = []
+        latents = {}
         for name in latent_names:
             feat_size = feat_sizes[name]
             latent = torch.randn(feat_size, dim) / dim
-            latents.append(nn.Parameter(latent, requires_grad=True))
+            latents[name] = nn.Parameter(latent, requires_grad=True)
 
-        self.latents = nn.ParameterList(latents)
+        self.latents = nn.ParameterDict(latents)
 
     def forward(self, feats):
-        assert len(feats) == self.num_feats
+        out = torch.zeros(feats["alpha"].size(0)).to(feats["alpha"].device)
+        for name in self.feat_names:
+            if self.share_latents and name == "prev":
+                continue
 
-        out = torch.zeros(feats[0].size(0))
-        for i in range(self.num_feats):
-            out += torch.einsum("bd,d->b", feats[i], self.weights[i])
+            out += torch.einsum("bd,d->b", feats[name], self.weights[name])
 
         gammas = {}
-        for i in range(self.num_latents):
-            index = self.latent_indices[i]
-            gammas[self.latent_names[i]] = torch.einsum("bd,di->bi", feats[index], self.latents[i])
+        for name in self.latent_names:
+            gammas[name] = torch.einsum("bd,di->bi", feats[name], self.latents[name])
+
+        if self.share_latents:
+            gammas["prev"] = torch.einsum("bd,di->bi", feats["prev"], self.latents["cafe"])
 
         for (latent_i, latent_j) in self.latent_pairs:
             out += torch.einsum("bi,bi->b", gammas[latent_i], gammas[latent_j])
@@ -286,6 +307,9 @@ class CafeDatasetLatent(Dataset):
             elif name == "chains":
                 feat_sizes[name] = 3
 
+            elif name == "period":
+                feat_sizes[name] = 3
+
             elif name == "prev":
                 feat_sizes[name] = len(self.feat_dicts["cafe"].keys())
 
@@ -346,6 +370,10 @@ class CafeDatasetLatent(Dataset):
                 feat[feat_dict[review[0]]] = 1.
                 feats.append(feat)
 
+            elif name == "period":
+                feat = torch.tensor(unix_period_to_onehot(int(review[3])))
+                feats.append(feat)
+
             elif name == "prev":
                 cafe_feat_dict = self.feat_dicts['cafe']    # All cafes
                 feat_dict = self.feat_dicts[name]           # List of user -> list of all cafes user rated
@@ -366,17 +394,21 @@ class CafeDatasetLatent(Dataset):
         return *feats, rating
 
 class RateTrainerLatent():
-    def __init__(self, model, lambs, lr, train_dataloader, valid_dataloader, device):
+    def __init__(self, model, lamb_dict, lr, train_dataloader, valid_dataloader, device):
         self.model = model
-        self.lambs = lambs
+        self.lamb_dict = lamb_dict
         self.train_dataloader = train_dataloader
         self.valid_dataloader = valid_dataloader
         self.device = device
+
+        self.feat_names = model.feat_names
+        self.latent_names = model.latent_names
 
         self.optim =  torch.optim.Adam(model.parameters(), lr=lr)
 
     def train(self, n_epochs):
         train_mses, valid_mses = [], []
+        best_mse = float("inf")
         for i in range(n_epochs):
             train_mse = 0
             total = 0
@@ -384,7 +416,8 @@ class RateTrainerLatent():
             bar = tqdm.tqdm(self.train_dataloader, desc="Training Model")
             for feats in bar:
                 ratings = feats[-1].to(self.device)
-                feats = [f.to(self.device) for f in feats[:-1]]
+                assert len(self.feat_names) + 1 == len(feats)
+                feats = {name: f.to(self.device) for name, f in zip(self.feat_names, feats[:-1])}
 
                 self.optim.zero_grad()
 
@@ -395,7 +428,7 @@ class RateTrainerLatent():
                 mse_reg.backward()
                 self.optim.step()
 
-                batch_size = feats[0].size(0)
+                batch_size = feats["alpha"].size(0)
                 train_mse += mse.item() * batch_size
                 total += batch_size
 
@@ -404,6 +437,10 @@ class RateTrainerLatent():
             train_mse /= total
             valid_mse = self.validate()
             print(f"Step[{i + 1:2d}]: train {train_mse:2.6f} / valid {valid_mse:2.6f}")
+
+            if valid_mse < best_mse:
+                best_mse = valid_mse
+                torch.save(self.model, f"./models/{self.model.name}.pt")
 
             train_mses.append(train_mse)
             valid_mses.append(valid_mse)
@@ -417,11 +454,12 @@ class RateTrainerLatent():
 
             for feats in self.valid_dataloader:
                 ratings = feats[-1].to(self.device)
-                feats = [f.to(self.device) for f in feats[:-1]]
+                assert len(self.feat_names) + 1 == len(feats)
+                feats = {name: f.to(self.device) for name, f in zip(self.feat_names, feats[:-1])}
 
                 pred_ratings = self.model(feats)
 
-                batch_size = feats[0].size(0)
+                batch_size = feats["alpha"].size(0)
                 mse += self.mse(ratings, pred_ratings).item() * batch_size
                 total += batch_size
 
@@ -431,15 +469,15 @@ class RateTrainerLatent():
         return torch.mean((y_true - y_pred) ** 2)
 
     def regularizer(self):
-        weight_size = len(self.model.weights)
-        latent_size = len(self.model.latents)
-        assert len(self.lambs) == weight_size + latent_size
         reg = 0
-        for i in range(len(self.lambs)):
-            if i < len(self.model.weights):
-                reg += self.lambs[i] * torch.mean(self.model.weights[i] ** 2)
-            else:
-                dim = self.model.latents[0].size(1)
-                reg += self.lambs[i] * dim * torch.mean(self.model.latents[i - weight_size] ** 2)
+        for name in self.feat_names:
+            if self.model.share_latents and name == "prev":
+                continue
+
+            reg += self.lamb_dict[name] * torch.mean(self.model.weights[name] ** 2)
+
+        for name in self.latent_names:
+            latents = self.model.latents[name]
+            reg += self.lamb_dict[name] * latents.size(1) * torch.mean(latents ** 2)
 
         return reg
