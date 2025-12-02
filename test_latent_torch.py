@@ -26,7 +26,7 @@ def calculate_rmse(y_true, y_pred):
 def discrete_rating(y_pred):
     y_pred = torch.clamp(y_pred, min=0, max=5)
     y_pred = torch.round(y_pred)
-    
+
     return y_pred
 
 
@@ -39,13 +39,15 @@ def test_model(name, test_dataloader, model, device):
         model.to(device)
         model.eval()
 
+        feat_names = model.feat_names
+
         for feats in test_dataloader:
             ratings = feats[-1].to(device)
-            feats = [f.to(device) for f in feats[:-1]]
+            feats = {name: f.to(device) for name, f in zip(feat_names, feats[:-1])}
 
             pred_ratings = model(feats)
 
-            batch_size = feats[0].size(0)
+            batch_size = feats["alpha"].size(0)
             mse += calculate_mse(ratings, pred_ratings).item() * batch_size
             rmse += calculate_rmse(ratings, pred_ratings).item() * batch_size
 
@@ -62,7 +64,7 @@ def test_model(name, test_dataloader, model, device):
 
 
 def visualize_cafe_latents_with_pca(model, run_name):
-    
+
     print(f"[{run_name}] Building PCA visualization of cafe latents...")
 
     # Loading cafe metadata
@@ -245,25 +247,24 @@ if __name__ == "__main__":
     with open("./params.json", "r") as f:
         params = json.load(f)
 
-    pca_done = False
-
     for param_dict in params:
         feat = param_dict["feat"]
         feat_names = param_dict["feat_names"]
         latent_names = param_dict["latent_names"]
+        latent_pairs = param_dict["latent_pairs"]
         lamb_dict = param_dict["lamb_dict"]
+        share_latents = param_dict.get("share_latents", 0)
+
         test = param_dict["test"]
-        lambs = [lamb_dict[feat] for feat in feat_names + latent_names]
 
-        if not test:
-            continue
-
-        lamb_str = "-".join([str(l) for l in lambs])
+        lamb_str = "_".join([f"{name}-{value}" for name, value in lamb_dict.items()])
         name = f"{feat}_{lamb_str}"
         if subset:
             name += "_subset"
 
-        
+        if not test:
+            continue
+
         batch_size = 2048
         feat_dicts, avg_rating = preprocess_data_latent(feat_names, subset=subset)
 
@@ -271,15 +272,18 @@ if __name__ == "__main__":
         test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
 
         model_path = f"./models/{name}.pt"
+
+        if not os.path.exists(model_path):
+            continue
+
         print(f"Loading model from {model_path}")
         model = torch.load(model_path, weights_only=False)
 
         device = torch.device("cpu")
         result = test_model(name, test_dataloader, model, device)
-        
+
         update_test_results(result)
 
         # Running PCA visualization once (for the latent model)
-        if feat == "latent" and not pca_done:
+        if "latent" in feat:
             visualize_cafe_latents_with_pca(model, name)
-            pca_done = True
