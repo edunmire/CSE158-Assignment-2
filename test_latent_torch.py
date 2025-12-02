@@ -14,6 +14,8 @@ import numpy as np
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 
+import seaborn as sns
+
 
 def calculate_mse(y_true, y_pred):
     return torch.mean((y_true - y_pred) ** 2)
