@@ -23,7 +23,7 @@ def compare_model_performances():
     sorted_names = np.array(names)[indices]
     sorted_mses = np.array(valid_mses)[indices]
 
-    print("\n".join([f"{name:50s}: {mse:.6f}" for name, mse in zip(sorted_names, sorted_mses)]))
+    print("\n".join([f"{name:70s}: {mse:.6f}" for name, mse in zip(sorted_names, sorted_mses)]))
 
 if __name__ == "__main__":
     compare_model_performances()

@@ -176,6 +176,14 @@
         "test": 1
     },
     {
+        "feat": "location",
+        "feat_names": ["alpha", "user", "cafe", "location"],
+        "latent_names": ["user", "cafe"],
+        "latent_pairs": [["user", "cafe"]],
+        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "location": 0.01},
+        "test": 1
+    },
+    {
         "feat": "location_latent",
         "feat_names": ["alpha", "user", "cafe", "location"],
         "latent_names": ["user", "cafe", "location"],
@@ -192,6 +200,14 @@
         "test": 1
     },
     {
+        "feat": "location_latent",
+        "feat_names": ["alpha", "user", "cafe", "location"],
+        "latent_names": ["user", "cafe", "location"],
+        "latent_pairs": [["user", "cafe"], ["user", "location"]],
+        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "location": 0.01},
+        "test": 1
+    },
+    {
         "feat": "time",
         "feat_names": ["alpha", "user", "cafe", "weekday", "hour"],
         "latent_names": ["user", "cafe"],
@@ -205,6 +221,14 @@
         "latent_names": ["user", "cafe"],
         "latent_pairs": [["user", "cafe"]],
         "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "weekday": 0.1, "hour": 0.1},
+        "test": 1
+    },
+    {
+        "feat": "time",
+        "feat_names": ["alpha", "user", "cafe", "weekday", "hour"],
+        "latent_names": ["user", "cafe"],
+        "latent_pairs": [["user", "cafe"]],
+        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "weekday": 0.01, "hour": 0.01},
         "test": 1
     },
     {
@@ -224,6 +248,14 @@
         "test": 1
     },
     {
+        "feat": "time_latent",
+        "feat_names": ["alpha", "user", "cafe", "weekday", "hour"],
+        "latent_names": ["user", "cafe", "weekday", "hour"],
+        "latent_pairs": [["user", "cafe"], ["user", "weekday"], ["user", "hour"]],
+        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "weekday": 0.01, "hour": 0.01},
+        "test": 1
+    },
+    {
         "feat": "time_all_latent",
         "feat_names": ["alpha", "user", "cafe", "weekday", "hour"],
         "latent_names": ["user", "cafe", "weekday", "hour"],
@@ -237,6 +269,14 @@
         "latent_names": ["user", "cafe", "weekday", "hour"],
         "latent_pairs": [["user", "cafe"], ["user", "weekday"], ["user", "hour"], ["cafe", "weekday"], ["cafe", "hour"]],
         "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "weekday": 0.1, "hour": 0.1},
+        "test": 1
+    },
+    {
+        "feat": "time_all_latent",
+        "feat_names": ["alpha", "user", "cafe", "weekday", "hour"],
+        "latent_names": ["user", "cafe", "weekday", "hour"],
+        "latent_pairs": [["user", "cafe"], ["user", "weekday"], ["user", "hour"], ["cafe", "weekday"], ["cafe", "hour"]],
+        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "weekday": 0.01, "hour": 0.01},
         "test": 1
     },
     {
@@ -276,34 +316,7 @@
         "feat_names": ["alpha", "user", "cafe", "prev"],
         "latent_names": ["user", "cafe", "prev"],
         "latent_pairs": [["user", "cafe"], ["cafe", "prev"]],
-        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "prev": 0.01},
-        "share_latents": 1,
-        "test": 1
-    },
-    {
-        "feat": "prev_share_latent",
-        "feat_names": ["alpha", "user", "cafe", "prev"],
-        "latent_names": ["user", "cafe", "prev"],
-        "latent_pairs": [["user", "cafe"], ["cafe", "prev"]],
-        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "prev": 0.1},
-        "share_latents": 1,
-        "test": 1
-    },
-    {
-        "feat": "prev_share_latent",
-        "feat_names": ["alpha", "user", "cafe", "prev"],
-        "latent_names": ["user", "cafe", "prev"],
-        "latent_pairs": [["user", "cafe"], ["cafe", "prev"]],
         "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "prev": 1},
-        "share_latents": 1,
-        "test": 1
-    },
-    {
-        "feat": "prev_share_latent",
-        "feat_names": ["alpha", "user", "cafe", "prev"],
-        "latent_names": ["user", "cafe", "prev"],
-        "latent_pairs": [["user", "cafe"], ["cafe", "prev"]],
-        "lamb_dict": {"alpha": 0, "user": 0.1, "cafe": 1, "prev": 2},
         "share_latents": 1,
         "test": 1
     }

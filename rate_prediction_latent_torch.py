@@ -439,6 +439,9 @@ class RateTrainerLatent():
             reg += self.lamb_dict[name] * torch.mean(self.model.weights[name] ** 2)
 
         for name in self.latent_names:
+            if self.model.share_latents and name == "prev":
+                continue
+
             latents = self.model.latents[name]
             reg += self.lamb_dict[name] * latents.size(1) * torch.mean(latents ** 2)
 
