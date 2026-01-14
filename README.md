@@ -1,13 +1,8 @@
 # CSE158 - Californnia Cafe Recommendation System
 
-## Authors
-Shouki Katsuyama
+Authors: Shouki Katsuyama, Phillip Schiffman, Emma Dunmire
 
-Phillip Schiffman
-
-Emma Dunmire
-
-# Description
+## Description
 A machine learning model that predicts whether a user has visited a cafe. We limited our dataset to cafes in California and the number
 of reviews a user had given. The predictive task used review data
 that included rating, price, hours, name, and location.
