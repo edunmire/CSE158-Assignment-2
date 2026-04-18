@@ -1,4 +1,4 @@
-# CSE158 - Californnia Cafe Recommendation System
+# CSE158 - California Cafe Recommendation System
 
 Authors: Shouki Katsuyama, Phillip Schiffman, Emma Dunmire
 
